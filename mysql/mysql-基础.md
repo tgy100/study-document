@@ -1,4 +1,6 @@
-mysql
+## mysql
+
+### 一.**数据查询语言DQL**
 
 ### 1.select
 
@@ -721,31 +723,31 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
     - 内链接(inner)
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/inner_outer.png)
+      ![](./image/mysql-base/inner_outer.png)
 
     - 左外连接
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/left_outer.png)
+      ![](./image/mysql-base/left_outer.png)
 
     - 最外连接加条件
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/left_outer_add_codition.png)
+      ![](./image/mysql-base/left_outer_add_codition.png)
 
     - 右外连接
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/right_outer.png)
+      ![](./image/mysql-base/right_outer.png)
 
     - 右外加条件
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/right_outer_add_codition.png)
+      ![](./image/mysql-base/right_outer_add_codition.png)
 
     - 全外连接
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/full_outer.png)
+      ![](./image/mysql-base/full_outer.png)
 
     - 全外加条件
 
-      ![](/Users/tgy/Documents/Java/mysql/image/mysql-base/full_outer_add_codition.png)
+      ![](./image/mysql-base/full_outer_add_codition.png)
 
 #### 7)子查询
 
@@ -990,3 +992,493 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
   SELECT `name`, age 
   from man where age > 30
   ```
+
+### 二.数据操纵语言DML
+
+### 1.insert
+
+#### 1)分类
+
+1. 第一种插入格式
+
+   - 语法
+
+     ```sql
+     insert into 表(列名...) values(值...)
+     ```
+
+   - 注意事项
+
+     - 插入值的类型要与列的类型一致或者兼容
+
+       ```sql
+       INSERT INTO woman(id,`name`,age,man_id,parent_id) 
+       VALUES('62342342ddas2','刘涛',54,null,null);
+       ```
+
+     - 如果列允许为null，则有两种插入方式
+
+       - 是对应的列，但是values里面使用null
+
+         ```sql
+         INSERT INTO woman(id,`name`,age,man_id,parent_id) VALUES('62342342ddas2','刘涛',54,null,null);
+         ```
+
+       - 在表后面不写对应的列名，默认就是使用null填充
+
+         ```sql
+         INSERT INTO woman(id,`name`,age) 
+         VALUES('8e323ds','张曼玉',54);
+         ```
+
+     - 列的顺序可以调换，但values里面也要跟着调换
+
+     - 列数和值数必须一致
+
+     - 可以省略列名，默认所有列，列的顺序就是表字段的顺序
+
+       ```sql
+       INSERT INTO woman 
+       VALUES('32222ddqwd','刘亦菲',35,null,null);
+       ```
+
+2. 第二种插入方式
+
+   1. 语法
+
+      ```sql
+      insert into 表
+      set 列名=值,列名=值....
+      ```
+
+      ```sql
+      INSERT into woman set
+      id = '212sd2kld', `name` = '赵薇', age = 41
+      ```
+
+#### 2)两种方式比较
+
+1. 第一种可以批量插入，第二种不可以
+
+   ```sql
+   INSERT into man(id,`name`,age) 
+   VALUES('xadsxsad3292','潘粤明',42),
+   	  ('ghsdxd34242ddas','郑恺',32)
+   ```
+
+2. 第一种支持子查询，第二种不支持
+
+   ```sql
+   INSERT into man(id,`name`,age) 
+   SELECT 'xosxasds',`name`,age
+   FROM man 
+   where id='xadsxsad3292'
+   ```
+
+### 2.update
+
+#### 1)修复单表记录
+
+- 语法
+
+  ```sql
+  update 表名
+  set 列=新值,列=新值,...
+  where 筛选条件
+  ```
+
+- 练习
+
+  ```sql
+  UPDATE man 
+  SET age = 21
+  WHERE `name` = '潘粤明'
+  ```
+
+
+#### 2)修改多表记录
+
+- 语法
+
+  ```sql
+  #92语法
+  update 表1 别名,表2 别名
+  set 列=值, ...
+  where 连接条件 and 筛选条件
+  
+  #99语法(推荐)
+  update 表1 别名 
+  inner|left|right join 表2 别名
+  on 连接条件
+  set  列=值, ...
+  where 筛选条件
+  ```
+
+  ```sql
+  #没有女朋友的男的年龄小于30都改成20
+  UPDATE man m
+  LEFT JOIN woman w
+  on m.id = w.man_id
+  set m.age = 20
+  where w.man_id is null and m.age < 30
+  ```
+
+### 3.删除表数据
+
+#### 1)使用delete删除
+
+#####  1.删除单表
+
+- 语法
+
+  ```sql
+  delete from 表名 
+  where 筛选条件
+  ```
+
+  ```sql
+  delete FROM man 
+  where age < 30
+  ```
+
+##### 2.删除多表数据
+
+- 语法
+
+  ```sql
+  delete 表1的别名,表2的别名 
+  from 表1 别名 inner|left|right join 表2 别名
+  on 连接条件
+  where 筛选条件
+  ```
+
+  ```sql
+  #删除张无忌以及张无忌女朋友信息
+  DELETE m,w FROM
+  man m INNER JOIN woman w 
+  on m.id = w.man_id
+  where m.`name` = '张无忌'
+  
+  #删除张无忌女朋友信息
+  DELETE w FROM
+  man m INNER JOIN woman w 
+  on m.id = w.man_id
+  where m.`name` = '张无忌'
+  ```
+
+#### 2)使用truncate删除
+
+1. 语法
+
+   ```sql
+   truncate table 表
+   ```
+
+   ```sql
+   TRUNCATE TABLE man;
+   ```
+
+
+#### 3)两种删除比较
+
+|                        | delete         | truncate |
+| ---------------------- | -------------- | -------- |
+| 添加where条件          | 能             | 不能     |
+| 效率                   | 低             | 高       |
+| 自增长列删除之后再插入 | 从断点开始     | 从1开始  |
+| 返回值                 | 返回删除的列数 | 无       |
+| 事务回滚               | 能回滚         | 不能回滚 |
+
+### 三.数据定义语言DDL
+
+对库和表的管理，涉及到增删改
+
+创建(create),修改(alter) ,删除(drop)
+
+#### 1.库的管理
+
+##### 1)库的创建
+
+1. 语法
+
+   ```sql
+   create database IF NOT Exists 库名
+   ```
+
+   ==创建表的通用做法==
+
+   ```sql
+   drop database if exists 新库
+   create database 新库
+   ```
+
+
+##### 2)库不能修复
+
+1. 修改字符集
+
+   ```sql
+   alter database 库名 character set utf8
+   ```
+
+##### 3)库的删除
+
+1. 语法
+
+   ```sql
+   drop database IF Exists 库名
+   ```
+
+#### 2.表的管理
+
+##### 1)表的创建
+
+1. 语法
+
+   ```sql
+   create table IF NOT EXISTS 表名(
+   	列名 类型【长度，约束】
+   	列名 类型【长度，约束】
+   	列名 类型【长度，约束】
+   	...
+   )
+   ```
+
+   ```sql
+   CREATE table `book`(
+   	`id` VARCHAR(32) not null,
+   	`book_name` VARCHAR(32) not null,
+   	`price` DECIMAL(8,2),
+   	`author_id` int,
+   	`publishDate` datetime
+   )
+   ```
+
+   ```sql
+   #查询表的定义
+   desc 表名
+   ```
+
+   ==创建表的通用做法==
+
+   ```sql
+   drop table if exists 新表名
+   create table 新表名
+   ```
+
+##### 2)表的修改
+
+ 总语法: 
+
+```sql
+ALTER TABLE book change|modify|add|rename to|drop column 列名 【列类型 约束】
+```
+
+1. 修改列名
+
+   - 语法:
+
+     ```sql
+     alter table 表名 change column 旧列名 新列名 类型
+     ```
+
+     ```sql
+     ALTER TABLE book CHANGE COLUMN publishdate pdate  datetime
+     ```
+
+2. 修改列的类型或者约束
+
+   - 语法
+
+     ```sql
+     alter table 表名 modify column 列名 新类型|新约束
+     ```
+
+     ```sql
+     alter table book modify column pdate TIMESTAMP;
+     ```
+
+3. 添加新列
+
+   - 语法
+
+     ```sql
+     alter table 表名 add column 新列名 类型【约束】
+     ```
+
+     ```sql
+     alter table book add column salay DOUBLE;
+     ```
+
+4. 删除列
+
+   - 语法
+
+     ```sql
+     alter table 表名 drop column 列名
+     ```
+
+     ```sql
+     alter table book drop column salay
+     ```
+
+5. 修改表名
+
+   - 语法
+
+     ```sql
+     alter table 表名 rename to 新表名
+     ```
+
+     ```sql
+     ALTER TABLE book rename to books;
+     ```
+
+
+##### 3)表的删除
+
+1. 语法
+
+   ```sql
+   drop table IF Exists 表名
+   ```
+
+   ```sql
+   DROP table if EXISTS books;
+   ```
+
+##### 4)表的复制
+
+1. 复制表的结构
+
+   - 语法
+
+     ```sql
+     CREATE table 新表名 like 以存在的表;
+     ```
+
+     ```sql
+     CREATE table mybook like books;
+     ```
+
+2. 复制表的结构和数据(==根据where筛选条件，复制部分数据==)
+
+   - 语法
+
+     ```sql
+     create table 表名
+     select * from 以存在的表
+     where 筛选条件
+     ```
+
+     ```sql
+     CREATE table mybook
+     SELECT * from books
+     where price > 20;
+     ```
+
+3. 只复制表中的某些字段(不要数据)
+
+   ```sql
+   #复制books表中的ID，price字段到mybook01中，同时不要数据
+   CREATE table mybook01
+   SELECT id,price from books
+   where 0; #使用where 0 是筛选条件为false 或者使用 where 1=2
+   ```
+
+### 四.数据类型
+
+#### 1.数值类型
+
+##### 1）整型
+
+1. 分类
+
+   |        | tinyint | sampling | mediumint | Int, integer | Biting |
+   | ------ | ------- | -------- | --------- | ------------ | ------ |
+   | 字节数 | 1       | 2        | 3         | 4            | 8      |
+
+2. 特点
+
+   - 如果不设置无符号还是有符合默认是有符号，如果想设置无符号，需要添加unsigned关键字
+
+     ```sql
+     CREATE table t1(
+     	id int UNSIGNED
+     )
+     ```
+
+   - 如果插入的值超过了整数范围，回报out of range异常，并且插入==临界值==
+
+   - 如果不设置长的，会使用默认长度
+
+     ==长度代表的是显示的最大宽度，如果不够会用0在左边填充，但必须搭配zerofill使用==
+
+     ```sql
+     CREATE table t1(
+     	id int(4) ZEROFILL
+     )
+     ```
+
+##### 2）小数
+
+1. 分类
+
+   |        | float | double | dec(m,d)\| decimal(m,d) |
+   | ------ | ----- | ------ | ----------------------- |
+   | 字节数 | 4     | 8      | m+2                     |
+
+   - 浮点类型
+     - float(M,D)
+     - double(M,D)
+   - 定点类型
+     - dec（M,D）
+     - decimal(M,D)
+
+2. 特点
+
+   - M : 整数位数 + 小数位数，
+
+     D: 小数位数
+
+     如果超出范围，则插入临界值
+
+   - M和D都可以省略
+
+     - 如果是decimal类型，则M默认为10，D默认为0
+     - 如果是float或者double类型，则会随着插入值的精度来决定精度
+
+   - 定点型的精确度较高，如果要求插入的数值的精度较高如货币运行，则可以考虑使用
+
+#### 2)字符类型
+
+1. 分类
+
+   | 字符串类型 | 最多字符数 | 描述及存储            | 特点           | 效率 |
+   | ---------- | ---------- | --------------------- | -------------- | ---- |
+   | char(m)    | M          | m为0～255之间的整数   | 固定长度的字符 | 高   |
+   | varchar(m) | M          | m为0～65535之间的整数 | 可变长度的字符 | 低   |
+
+   注意: char 与varchar的固定长度与可变长度的意思
+
+   ```sql
+   CREATE table Person(
+   	id char(4),
+   	p_name varchar(8)
+   )
+   #如果插入
+   insert into Person set id='试试',p_name='张三'
+   #则id字段分配4个字符,p_name分配2个字符，如果超出了定义时的长度，都会报'Data too long'的错误
+   
+   ```
+
+#### 3.日期类型
+
+1. 分类
+
+   |           | 字节 | 范围      | 时区影响 |
+   | --------- | ---- | --------- | -------- |
+   | datetime  | 8    | 1000-9999 | 不受     |
+   | timestamp | 4    | 1970-2038 | 受       |
+
+   推荐使用==timestamp==
