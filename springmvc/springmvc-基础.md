@@ -109,4 +109,48 @@
    }
    ```
 
-3. 
+   ```java
+   //required=false的使用，在@RequestMapping的value加上"/index2"
+   @RequestMapping(value = {"/index2/{id}","/index2"},
+                       method = RequestMethod.GET)
+       public String index2(@PathVariable(value = "id",required = false) String p_id){
+   
+           System.out.println(p_id);
+           return  "index";
+    }
+   ```
+
+
+#### 2.@HiddenHttpMethodFilter注解
+
+##### 1）作用
+
+	由于web网页中只有get和post请求，而在实现rest风格的请求时，还有put，delete.该过滤器就是把web页面中带有如下格式的转换成对应的请求方式
+
+```html
+<input type="hidden" name="_method" value="put|delete">
+```
+
+##### 2）controller中的使用
+
+```java
+@PutMapping(value = "login")
+public String login(){
+
+	return  "message";
+}
+```
+
+##### 3)springboot中的配置
+
+在==WebMvcAutoConfiguration==配置文件中
+
+```java
+@Bean
+@ConditionalOnMissingBean(HiddenHttpMethodFilter.class)
+public OrderedHiddenHttpMethodFilter hiddenHttpMethodFilter() {
+	
+	return new OrderedHiddenHttpMethodFilter();
+}
+```
+

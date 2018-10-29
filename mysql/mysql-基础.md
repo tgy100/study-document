@@ -1482,3 +1482,411 @@ ALTER TABLE book change|modify|add|rename to|drop column 列名 【列类型 约
    | timestamp | 4    | 1970-2038 | 受       |
 
    推荐使用==timestamp==
+
+### 五.约束
+
+#### 1)六大约束
+
+| 约束        | 含义                                                         | 可使用字段         |
+| ----------- | ------------------------------------------------------------ | ------------------ |
+| not null    | 非空，用于保证该字段的值不为空                               | 姓名，学号字段等   |
+| default     | 默认值，用于保证该字段有默认值                               | 性别等             |
+| Primary key | 主键，保证该字段具有唯一性，且非空                           | 学号，编号等       |
+| unique      | 唯一，用于保证字段的具体值唯一，可以为空                     | 座位等             |
+| check       | 检查约束【mysql不支持】                                      | 年龄，性别         |
+| foreign key | 外键，用于限制两个表的关系，用于保证该字段的值必须来自于主表的关联列值，在从表添加外键约束，用于引用主表中某列的值 | 从表引用主表的主键 |
+
+1. ==主键(primary key),唯一(unique)对比==
+
+   |      | 保证唯一 | 是否允许为空 | 表中允许的个数 | 是否允许组合   |
+   | ---- | -------- | ------------ | -------------- | -------------- |
+   | 主键 | 是       | 否           | 一个           | 允许（不推荐） |
+   | 唯一 | 是       | 是           | 多个           | 允许（不推荐） |
+
+   ```sql
+   INSERT into stuinfo(id,stu_name,sex,age,seat,major_id) VALUES(1,'张三','男',21,null,1);
+   INSERT into stuinfo(id,stu_name,sex,age,seat,major_id) VALUES(2,'李四','女',20,null,1);
+   ```
+
+2. ==外键总结==
+
+   - 要求在从表设置外键关系
+
+   - 从表的外键列类型与主表的关联列类型一致，名称无要求
+
+   - 主表的关联列必须是一个key(一般是主键或者唯一键)
+
+   - 插入数据时，先插入主表，再插入从表
+
+     删除数据时，先删从表，再删主表
+
+#### 2)添加约束的时机
+
+1. 创建表时
+2. 修改表时
+
+#### 3)约束的添加分类
+
+1. 列级约束
+   - 六大约束都支持，但外键没有效果
+2. 表级约束
+   - 除了非空，默认，其他都支持
+
+#### 4)创建表时添加约束
+
+##### 1.添加列级约束
+
+```sql
+CREATE table `stuinfo`(
+	`id` int PRIMARY KEY,#主键
+	 `stu_name` VARCHAR(32) Not null, #非空
+	 `gender` CHAR(1) CHECK(gender='男' or gender='女'), #检查约束
+		`seat` int UNIQUE, #唯一约束
+		`age` int DEFAULT 21, #默认值
+		major_id int REFERENCES major(id)#外键约束
+);
+
+CREATE table `major`(
+	`id` int PRIMARY KEY,
+	`major_name` VARCHAR(32) not null
+)
+```
+
+1. 查看某个表中的索引
+
+   ```sql
+   show INDEX FROM stuinfo 
+   ```
+
+2. 语法
+
+   直接在字段名和类型后面添加约束类型即可
+
+3. 支持的类型
+
+   主键(primary key)，默认(default),非空(not null), 唯一约束(unique)
+
+##### 2.添加表级约束
+
+```sql
+CREATE table `stuinfo`(
+		`id` int ,
+		`stu_name` VARCHAR(32) Not null, #非空
+		`gender` CHAR(1) ,
+		`seat` int , 
+		`age` int DEFAULT 21, #默认值
+		`major_id` int,
+		
+		CONSTRAINT `pk` PRIMARY key(`id`), #主键
+		CONSTRAINT `seat_uq` UNIQUE(`seat`), #唯一键
+		CONSTRAINT `fk_stuinfo_major` FOREIGN KEY(`major_id`) REFERENCES major(`id`) #外键
+);
+```
+
+1. 语法
+
+   【constraint 名】约束类型(字段名) 
+
+2. 通用写法
+
+   ```sql
+   CREATE TABLE `stuinfo`(
+   	`id` int PRIMARY KEY,
+   	`stu_name` VARCHAR(32) NOT null,
+   	`sex` char(1),
+   	`age` int DEFAULT 18,
+   	`major_id` int,
+       `seat` int unique,
+   	CONSTRAINT fk_stuinfo_marg FOREIGN KEY(`major_id`) REFERENCES major(`id`)
+   )
+   ```
+
+#### 5)修改表时添加约束
+
+1. 添加非空约束
+
+   ```sql
+   alter table `stuinfo` modify column `stu_name` VARCHAR(32) NOT null
+   ```
+
+2. 添加默认约束
+
+   ```sql
+   alter table `stuinfo` modify column `age` int default 19
+   ```
+
+3. 添加主键
+
+   - 列级约束
+
+     ```sql
+     alter table `stuinfo` modify column `id` primary key
+     ```
+
+   - 行级约束
+
+     ```sql
+     alter table `stuinfo` add  primary key(`id`)
+     ```
+
+4. 添加唯一键
+
+   - 列级约束
+
+     ```sql
+     alter table `stuinfo` modify column `seat` int unique
+     ```
+
+   - 表级约束
+
+     ```sql
+     alter table `stuinfo` add  unique(seat)
+     ```
+
+5. 添加外键
+
+   ```sql
+   alter table `stuinfo` add constraint `fk_stuinfo_major` FOREIGN KEY(`major_id`) REFERENCES major(`id`)
+   ```
+
+
+#### 6)修改表时删除约束
+
+1. 删除非空
+
+   ```sql
+   alter table `stuinfo` modify column `stu_name` VARCHAR(32)  null
+   ```
+
+2. 删除默认值
+
+   ```sql
+   alter table `stuinfo` modify column `age` int
+   ```
+
+3. 删除主键
+
+   ```sql
+   alter table `stuinfo` drop primary key 
+   ```
+
+4. 删除唯一键
+
+   ```sql
+   alter table `stuinfo` drop index `seat`
+   ```
+
+5. 删除外键
+
+   ```sql
+   alter table `stuinfo` drop foreigen key `fk_stuinfo_major`
+   ```
+
+#### 7)标识列（又称自增长列）
+
+##### 1.创建表时设置标识列
+
+```sql
+CREATE table `major`(
+	`id` int PRIMARY KEY auto_increment,
+	`major_name` VARCHAR(32) not null
+)
+```
+
+##### 2.修改表时设置标识列
+
+```sql
+alter table `major` modify column `id` int PRIMARY KEY auto_increment
+```
+
+##### 3.修改表时删除标识列
+
+```sql
+alter table `major` modify column `id` int PRIMARY KEY 
+```
+
+##### 4.总结
+
+1. 标识列只能与是一个key(unique或者primary key)类型搭配使用
+
+2. 一个表至多有一个自增长列
+
+3. 自增长列的类型只能是数字类型(int,float,double)
+
+4. 自增长列可以通过一下方式设置度长
+
+   ```sql
+   set auto_increment_increment = 2
+   ```
+
+   设置起始值可以在第一次插入的时候设置一个值，后面不用设置，就会自增长
+
+   ```sql
+   #从6开始，后面不用插入，自动增长
+   INSERT INTO major VALUES(6,'呵呵');
+   INSERT INTO major VALUES(null,'呵呵1');
+   INSERT INTO major VALUES(null,'呵呵2');
+   ```
+
+
+### 六.事务
+
+#### 1)事件介绍
+
+1. 事务的概念
+
+   一个或一组sql语句组成一个执行单元，这个执行单元要么全部执行，要么全部不执行，如转账
+
+   ```sql
+   #查看mysql支持的存储引擎
+   show engines;
+   ```
+
+2. 事务支持的ACID属性
+
+   - 原子性（Atomicity）
+
+     事务的原子性是指事务必须是一个原子的操作序列单元。事务中包含的各项操作在一次执行过程中，只允许出现两种状态之一。
+     全部执行成功
+     全部执行失败
+     任何一项操作都会导致整个事务的失败，同时其它已经被执行的操作都将被撤销并回滚，只有所有的操作全部成功，整个事务才算是成功完成。
+
+   - 一致性（Consistency）
+
+     事务的一致性是指事务的执行不能破坏数据库数据的完整性和一致性，一个事务在执行之前和执行之后，数据库都必须处以一致性状态。
+
+     比如：如果从A账户转账到B账户，不可能因为A账户扣了钱，而B账户没有加钱。
+
+   - 隔离性（Isolation）
+
+     事务的隔离性是指在并发环境中，并发的事务是互相隔离的，一个事务的执行不能被其它事务干扰。也就是说，不同的事务并发操作相同的数据时，每个事务都有各自完整的数据空间。
+
+     一个事务内部的操作及使用的数据对其它并发事务是隔离的，并发执行的各个事务是不能互相干扰的。
+
+   - 持久性（Duration）
+
+     事务的持久性是指事务一旦提交后，数据库中的数据必须被永久的保存下来。即使服务器系统崩溃或服务器宕机等故障。只要数据库重新启动，那么一定能够将其恢复到事务成功结束后的状态。
+
+3. 数据库并发访问会出现的问题
+
+   - 更新丢失
+
+     当有两个并发执行的事务，更新同一行数据，那么有可能一个事务会把另一个事务的更新覆盖掉。 
+     当数据库没有加任何锁操作的情况下会发生。
+
+   - 脏读
+
+     一个事务读到另一个尚未提交的事务中的数据。 该数据可能会被回滚从而失效。 如果第一个事务拿着失效的数据去处理那就发生错误了。
+
+   - 不可重复读
+
+     不可重复度的含义：一个事务对同一行数据读了两次，却得到了不同的结果。它具体分为如下两种情况： 
+
+     1. 虚读
+
+        在事务1两次读取同一记录的过程中，事务2对该记录进行了==修改==，从而事务1第二次读到了不一样的记录。 
+
+     2. 幻读
+
+        事务1在两次查询的过程中，事务2对该表进行了==插入、删除==操作，从而事务1第二次查询的结果发生了变化。
+
+     3. 与『脏读』的区别
+
+        脏读读到的是==尚未提交==的数据，而不可重复读读到的是==已经提交==的数据，只不过在两次读的过程中数据被另一个事务改过了。
+
+4. 事务的隔离级别
+
+   - Read uncommitted 读未提交
+
+     在该级别下，一个事务对一行数据修改的过程中，不允许另一个事务对该行数据进行修改，但允许另一个事务对该行数据读。 
+     因此本级别下，不会出现更新丢失，但会出现脏读、不可重复读。
+
+   - Read committed 读提交
+
+     在该级别下，未提交的写事务不允许其他事务访问该行，因此不会出现脏读；但是读取数据的事务允许其他事务的访问该行数据，因此会出现不可重复读的情况。
+
+   - Repeatable read 重复读
+
+     在该级别下，读事务禁止写事务，但允许读事务，因此不会出现同一事务两次读到不同的数据的情况（不可重复读），且写事务禁止其他一切事务。
+
+   - Serializable 序列化
+
+     该级别要求所有事务都必须串行执行，因此能避免一切因并发引起的问题，但效率很低。
+
+
+
+   这四个级别可以逐个解决脏读 、不可重复读 、幻读 这几类问题
+
+   ![](./image/mysql-transaction/01.png)
+
+   mysql默认级别是：==Repeatable read 重复读==
+
+#### 2）事务的创建
+
+1. 隐式事务
+
+   事务没有明显的开启和结束的标记，如:insert,update,delete语句
+
+   ```sql
+   #默认是on，自动开启的
+   show VARIABLES LIKE 'autocommit';
+   ```
+
+2. 显式事务
+
+   事务具有明显的开启和结束标记
+
+   ==前提是必须设置自动提交功能为禁用==
+
+   ```sql
+   #关闭自动提交,只对当前会话有效
+   set autocommit=0
+   ```
+
+   - 开启事务的步骤
+
+     1. 开启事务
+
+        ```sql
+        set autocommit = 0
+        start transaction; #可选的
+        ```
+
+     2. 编写事务中的sql语句(select,insert,update,delete)
+
+     3. 结束事务
+
+        ```sql
+        #提交事务
+        commit;
+        #或者出现问题，回滚事务
+        rollback;
+        ```
+
+     4. 实例
+
+        ```sql
+        set autocommit=0;
+        START TRANSACTION;
+        INSERT INTO major VALUES(null,'语文');
+        update books set book_name='三体' where id='dsds';
+        -- ROLLBACK;
+        COMMIT;
+        ```
+
+
+#### 2）事务的保存点(savepoint)
+
+回滚到指定位置
+
+```sql
+set autocommit = 0;
+START TRANSACTION;
+DELETE FROM major where id = 7;
+SAVEPOINT p1; #设置保存点
+DELETE FROM major where id = 10;
+ROLLBACK TO p1;#回滚到保存点
+```
+
+
+
