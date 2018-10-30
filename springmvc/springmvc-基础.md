@@ -121,7 +121,7 @@
    ```
 
 
-#### 2.@HiddenHttpMethodFilter注解
+#### 3.@HiddenHttpMethodFilter注解
 
 ##### 1）作用
 
@@ -153,4 +153,139 @@ public OrderedHiddenHttpMethodFilter hiddenHttpMethodFilter() {
 	return new OrderedHiddenHttpMethodFilter();
 }
 ```
+
+#### 4.@RequestParam
+
+接收?后面的参数，当不是必须传时，可以如下设置
+
+```java
+@GetMapping(value = "/requestParam")
+public String requestParam(@RequestParam(value = "age",required = false,defaultValue = "0") int age1){
+
+
+        System.out.println(age1);
+        return "index";
+    }
+```
+
+#### 5.@RequestParam
+
+##### 获取请求头参数
+
+```java
+@GetMapping(value = "/requestParam")
+public String requestParam(@RequestHeader(value = "Content-Type",
+                                          required = false,
+                                          defaultValue = "ss") String contentType){
+        System.out.println( contentType);
+        return "index";
+}
+```
+
+#### 6.@CookieValue
+
+##### 获取cooke中的参数
+
+```java
+@GetMapping(value = "/requestParam")
+public String requestParam(@CookieValue(value = "Webstorm-702797c8",
+										required = false,
+										defaultValue = "sa")String name){
+        System.out.println( name);
+        return "index";
+}
+```
+
+#### 7.controller方法中可以写的参数
+
+```java
+@Nullable
+private Object resolveArgument(Class<?> paramType, HttpServletRequest request) throws IOException {
+	if (HttpSession.class.isAssignableFrom(paramType)) {
+		HttpSession session = request.getSession();
+		if (session != null && !paramType.isInstance(session)) {
+			throw new IllegalStateException(
+					"Current session is not of type [" + paramType.getName() + "]: " + session);
+		}
+		return session;
+	}
+	else if (pushBuilder != null && pushBuilder.isAssignableFrom(paramType)) {
+		return PushBuilderDelegate.resolvePushBuilder(request, paramType);
+	}
+	else if (InputStream.class.isAssignableFrom(paramType)) {
+		InputStream inputStream = request.getInputStream();
+		if (inputStream != null && !paramType.isInstance(inputStream)) {
+			throw new IllegalStateException(
+					"Request input stream is not of type [" + paramType.getName() + "]: " + inputStream);
+		}
+		return inputStream;
+	}
+	else if (Reader.class.isAssignableFrom(paramType)) {
+		Reader reader = request.getReader();
+		if (reader != null && !paramType.isInstance(reader)) {
+			throw new IllegalStateException(
+					"Request body reader is not of type [" + paramType.getName() + "]: " + reader);
+		}
+		return reader;
+	}
+	else if (Principal.class.isAssignableFrom(paramType)) {
+		Principal userPrincipal = request.getUserPrincipal();
+		if (userPrincipal != null && !paramType.isInstance(userPrincipal)) {
+			throw new IllegalStateException(
+					"Current user principal is not of type [" + paramType.getName() + "]: " + userPrincipal);
+		}
+		return userPrincipal;
+	}
+	else if (HttpMethod.class == paramType) {
+		return HttpMethod.resolve(request.getMethod());
+	}
+	else if (Locale.class == paramType) {
+		return RequestContextUtils.getLocale(request);
+	}
+	else if (TimeZone.class == paramType) {
+		TimeZone timeZone = RequestContextUtils.getTimeZone(request);
+		return (timeZone != null ? timeZone : TimeZone.getDefault());
+	}
+	else if (ZoneId.class == paramType) {
+		TimeZone timeZone = RequestContextUtils.getTimeZone(request);
+		return (timeZone != null ? timeZone.toZoneId() : ZoneId.systemDefault());
+	}
+
+	// Should never happen...
+	throw new UnsupportedOperationException("Unknown parameter type: " + paramType.getName());
+}
+```
+
+```java
+@Override
+public Object resolveArgument(MethodParameter parameter, @Nullable 												  ModelAndViewContainer mavContainer,
+                              NativeWebRequest webRequest, 
+                              @Nullable WebDataBinderFactory binderFactory) throws Exception {
+
+	Class<?> paramType = parameter.getParameterType();
+
+	// WebRequest / NativeWebRequest / ServletWebRequest
+	if (WebRequest.class.isAssignableFrom(paramType)) {
+		if (!paramType.isInstance(webRequest)) {
+			throw new IllegalStateException(
+					"Current request is not of type [" + paramType.getName() + "]: " + webRequest);
+		}
+		return webRequest;
+	}
+
+	// ServletRequest / HttpServletRequest / MultipartRequest / MultipartHttpServletRequest
+	if (ServletRequest.class.isAssignableFrom(paramType) || MultipartRequest.class.isAssignableFrom(paramType)) {
+		return resolveNativeRequest(webRequest, paramType);
+	}
+
+	// HttpServletRequest required for all further argument types
+	return resolveArgument(paramType, resolveNativeRequest(webRequest, HttpServletRequest.class));
+}
+```
+
+
+
+通过源码，可以放：HttpSession,InputStream,Reader,Principal,HttpMethod,Locale
+
+
 

@@ -1821,7 +1821,7 @@ alter table `major` modify column `id` int PRIMARY KEY
 
    mysql默认级别是：==Repeatable read 重复读==
 
-#### 2）事务的创建
+#### 2)事务的创建
 
 1. 隐式事务
 
@@ -1875,7 +1875,7 @@ alter table `major` modify column `id` int PRIMARY KEY
         ```
 
 
-#### 2）事务的保存点(savepoint)
+#### 3)事务的保存点(savepoint)
 
 回滚到指定位置
 
@@ -1888,5 +1888,341 @@ DELETE FROM major where id = 10;
 ROLLBACK TO p1;#回滚到保存点
 ```
 
+### 七.视图(view)
 
+#### 1)概念
+
+	视图是从mysql5.0.1版本开始提供的视图功能。一种虚拟存在的表，行和列的数据都来自定义视图的查询中使用的表，并且是在使用视图时==动态生成的==，只保存了==sql逻辑==，不保存查询结果
+
+#### 2)应用场景
+
+1. 多个地方用到同样的查询结果
+2. 该查询结果使用的sql语句比较复杂
+
+#### 3)视图创建
+
+1. 语法
+
+   ```sql
+   create view 视图名
+   as
+   查询语句;
+   ```
+
+   ```sql
+   #创建视图
+   CREATE VIEW woman_man_view
+   as
+   SELECT woman.`name` w_name,man.`name` m_name
+   FROM woman INNER JOIN man
+   on woman.man_id = man.id;
+   #使用视图
+   SELECT w_name, m_name
+   FROM woman_man_view
+   where w_name = '章子怡'
+   ```
+
+   ```sql
+   #创建
+   CREATE view woma_man_avg
+   as
+   SELECT woman.`name` w_name,AVG(man.age) ag
+   FROM woman INNER JOIN man
+   on woman.man_id = man.id
+   GROUP BY woman.`name`
+   #使用
+   SELECT ar.`name`,wma.ag
+   FROM age_rank ar INNER JOIN woma_man_avg wma
+   ON wma.ag BETWEEN ar.`start` and ar.`end`;
+   ```
+
+2. 总结
+
+   - 重用sql语句
+   - 简化复杂的sql操作，不必知道其中的细节
+   - 保护数据，提高安全性
+
+#### 4)视图的修改
+
+##### 1.语法
+
+1. 第一种
+
+   ```sql
+   create or replace view 视图名
+   as
+   表名
+   ```
+
+   ```sql
+   CREATE OR REPLACE view woma_man_avg
+   as
+   SELECT woman.`name` w_name,AVG(man.age) ag
+   FROM woman INNER JOIN man
+   on woman.man_id = man.id
+   GROUP BY woman.`name`;
+   ```
+
+2. 第二种
+
+   ```sql
+   alter view 视图名
+   as
+   表名
+   ```
+
+   ```sql
+   alter view woma_man_avg
+   as
+   SELECT woman.`name` w_name,AVG(man.age) `avg`
+   FROM woman INNER JOIN man
+   on woman.man_id = man.id
+   GROUP BY woman.`name`;
+   ```
+
+
+#### 5)删除视图
+
+##### 1.语法
+
+```sql
+drop view 视图名1,视图名2,视图名3...
+```
+
+```sql
+drop view woman_man_view,woma_man_avg;
+```
+
+#### 6)查看视图结构
+
+```sql
+show create view 视图名
+```
+
+```sql
+show CREATE view woma_man_avg;
+```
+
+#### 7)视图的更新(不允许更新数据)
+
+1.不能更新的视图
+
+  视图创建的sql语句中包含一下关键字不能更新
+
+- 分组函数 ，distinct, group by,having,union或者union all
+
+- 常量视图
+
+  ```
+  select 'abc';
+  ```
+
+- 子查询
+
+- join
+
+- from一个不能更新的视图
+
+- where 子句的子查询引用了from子句中的表
+
+2.能更新的视图
+
+简单的没有上面限制的视图(一般也不会用视图)
+
+3.总结
+
+所以一般视图==不允许更新==
+
+#### 8)视图与表的对比
+
+|      | 创建语法关键字 | 是否实际占用物理空间 | 使用                   |
+| ---- | -------------- | -------------------- | ---------------------- |
+| 视图 | create view    | 只是保存了sql逻辑    | 查，数据一般不能增删改 |
+| 表   | create table   | 保存了数据和逻辑     | 增删改查               |
+
+### 八.变量
+
+#### 1)分类
+
+1. 系统变量
+   - 全局变量
+   - 会话变量
+2. 自定义变量
+   - 用户变量
+   - 局部变量
+
+#### 2)系统变量
+
+1. 说明
+
+   变量是由系统提供，不是用户定义的，属于服务器层面的
+
+2. 使用语法
+
+   - 查看所有的系统变量
+
+     ```sql
+     show global|session variables;
+     ```
+
+   - 查看满足条件的部分系统变量
+
+     ```sql
+     show global|【session】 variables like '%char%';
+     ```
+
+   - 查询指定的某个系统变量的值
+
+     ```sql
+     select @@global|session.系统名;
+     ```
+
+     ```sql
+     #会话变量查询
+     SELECT  @@session.auto_increment_increment; 或者
+     SELECT  @@auto_increment_increment; 
+     #全局变量查询
+     SELECT  @@global.character_sets_dir;
+     ```
+
+   - 为某个变量赋值
+
+     - 方式一
+
+       ```sql
+       set global|【session】 系统变量名=值
+       ```
+
+       ```sql
+       set global  auto_increment_increment = 2;
+       ```
+
+     - 方式二
+
+       ```sql
+       set @global|session.系统变量名=值
+       ```
+
+       ```sql
+       SET @@session.auto_increment_increment = 3;
+       #或者如下方式写
+       SET @@auto_increment_increment = 3;
+       ```
+
+   - ==注意事项==
+
+     如果是全局级别，则需要加global，如果是会话级别，则需要加上session
+
+     如果不写，默认是会话级别(session)
+
+#### 3)自定义变量
+
+##### 1.用户变量
+
+1. 说明
+
+   用户变量是用户自定义的变量，不是系统的变量
+
+2. 使用步骤
+
+   赋值操作符: ===== 或者 ==:===
+
+   (1) 声明(三种方式)
+
+   ```sql
+   set @用户变量名=值;
+   set @用户变量名:=值;
+   select @用户变量名:=值;
+   ```
+
+   (2) 赋值
+
+   1. 方式一
+
+      ```sql
+      set @用户变量名=值;
+      set @用户变量名:=值;
+      select @用户变量名:=值;
+      ```
+
+      ```sql
+      set @name='张三';
+      #没有定义类型，所以可以赋值各种类型
+      set @name=100;
+      ```
+
+   2. 方式二
+
+      ```sql
+      #字段必须是一个
+      select 字段 into @变量名
+      from 表;
+      ```
+
+      ```sql
+      set @count=0;
+      SELECT COUNT(*) into @count 
+      FROM woman;
+      ```
+
+   (3)查看值
+
+   ```sql
+   select @变量名;	
+   ```
+
+   ```sql
+   SELECT @count;
+   ```
+
+3. 作用域
+
+   针对当前会话（连接）有效，同于会话变量的作用域。
+
+   应用在任何地方，也就是begin end 里面或者begin end外面
+
+##### 2.局部变量
+
+1. 作用域
+
+   仅仅在定义它的begin end 中有效,并且==必须放在begin end第一句==
+
+2. 声明
+
+   ```sql
+   declare 变量名 类型;
+   declare 变量名 类型 default 值;
+   ```
+
+3. 赋值
+
+   1. 通过set或者select
+
+      ```sql
+      set 局部变量名=值;
+      set 局部变量名:=值;
+      select @局部变量名:=值;
+      ```
+
+   2. 通过select into
+
+      ```sql
+      #字段必须是一个
+      select 字段 into 局部变量名
+      from 表;
+      ```
+
+   3. 查看值
+
+      ```sql
+      select 局部变量名;
+      ```
+
+
+##### 3.用户变量与局部变量对比
+
+|          | 作用域       | 定义与使用位置                  | 语法                    |
+| -------- | ------------ | ------------------------------- | ----------------------- |
+| 用户变量 | 当前会话     | 会话中的任何位置                | 必须加@，同时不限定类型 |
+| 局部变量 | begin end 中 | 只能在begin end中，并且是第一句 | 一般不加@，限定类型     |
 
