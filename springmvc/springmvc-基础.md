@@ -287,5 +287,127 @@ public Object resolveArgument(MethodParameter parameter, @Nullable 												 
 
 通过源码，可以放：HttpSession,InputStream,Reader,Principal,HttpMethod,Locale
 
+#### 8.ModelAndView
 
+##### 1)源码处理
+
+DispatcherServlet 类的render(mv, request, response);
+
+```java
+protected void render(ModelAndView mv, HttpServletRequest request, HttpServletResponse response) throws Exception {
+	// Determine locale for request and apply it to the response.
+	Locale locale =(this.localeResolver != null ? this.localeResolver.resolveLocale(request) : request.getLocale());
+	response.setLocale(locale);
+    
+	View view;
+	String viewName = mv.getViewName();
+	if (viewName != null) {
+		
+		view = resolveViewName(viewName, mv.getModelInternal(), locale, request);
+		if (view == null) {
+			throw new ServletException("Could not resolve view with name '" + mv.getViewName() +
+					"' in servlet with name '" + getServletName() + "'");
+		}
+	}
+	else {
+	
+		view = mv.getView();
+		if (view == null) {
+			throw new ServletException("ModelAndView [" + mv + "] neither contains a view name nor a " +
+					"View object in servlet with name '" + getServletName() + "'");
+		}
+	}
+	try {
+		if (mv.getStatus() != null) {
+			response.setStatus(mv.getStatus().value());
+		}
+        //解释视图，把逻辑视图与物理视图关联
+		view.render(mv.getModelInternal(), request, response);
+	}
+	catch (Exception ex) {
+		
+		throw ex;
+	}
+}
+```
+
+在AbstractView方法中把ModelView中的数据放到了request域中
+
+```java
+protected void exposeModelAsRequestAttributes(Map<String, Object> model,
+			HttpServletRequest request) throws Exception {
+
+	model.forEach((modelName, modelValue) -> {
+		if (modelValue != null) {
+			request.setAttribute(modelName, modelValue);
+		}
+		else {
+			request.removeAttribute(modelName);
+		}
+	});
+}
+```
+
+#### 9.@SessionAttributes
+
+##### 1)作用
+
+	按照key取出ModelMap中的值，该key在ModelMap和注解@SessionAttributes的names字段中都存在。把取出来的值放到session域中。
+
+##### 2)注意
+
+1. @SessionAttributes只能在方法中使用
+
+##### 3)源码分析
+
+RequestMappingHandlerAdapter 类的getModelAndView方法调用
+
+```java
+modelFactory.updateModel(webRequest, mavContainer);
+```
+
+ModelFactory 类的的updateModel中把modelMap中存在的key应用的值设置到session域中
+
+```java
+public void updateModel(NativeWebRequest request, ModelAndViewContainer container) throws Exception {
+	ModelMap defaultModel = container.getDefaultModel();
+	if (container.getSessionStatus().isComplete()){
+		this.sessionAttributesHandler.cleanupAttributes(request);
+	}
+	else {
+		//设置到session域中
+		this.sessionAttributesHandler.storeAttributes(request, defaultModel);
+	}
+	if (!container.isRequestHandled() && container.getModel() == defaultModel) {
+		updateBindingResult(request, defaultModel);
+	}
+}
+```
+
+#### 10.@ModelAttribute
+
+```
+RequestMappingHandlerAdapter invokeHandlerMethod
+modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+```
+
+```java
+public void initModel(NativeWebRequest request, ModelAndViewContainer container, HandlerMethod handlerMethod)
+			throws Exception {
+
+	Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
+	container.mergeAttributes(sessionAttributes);
+	invokeModelAttributeMethods(request, container);
+
+	for (String name : findSessionAttributeArguments(handlerMethod)) {
+		if (!container.containsAttribute(name)) {
+			Object value = this.sessionAttributesHandler.retrieveAttribute(request, name);
+		if (value == null) {
+				throw new HttpSessionRequiredException("Expected session attribute '" + name + "'", name);
+			}
+			container.addAttribute(name, value);
+		}
+	}
+}
+```
 

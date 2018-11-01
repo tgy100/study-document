@@ -745,9 +745,26 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
       ![](./image/mysql-base/full_outer.png)
 
+      mysql没有全外，使用union连接左外与右外加条件
+
+      ```sql
+      select * from t1 left join t2 on t1.id = t2.id
+      union
+      select * from t1 right join t2 on t1.id = t2.id where t1.id = null
+      ```
+
     - 全外加条件
 
       ![](./image/mysql-base/full_outer_add_codition.png)
+
+      使用union连接左外加条件与右外加条件
+
+      ```sql
+      select * from t1 left join t2 on t1.id = t2.id where t2.id = null
+      union
+      select * from t1 right join t2 on t1.id = t2.id where t1.id = null
+      ```
+
 
 #### 7)子查询
 
@@ -1237,9 +1254,9 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
    ```sql
    create table IF NOT EXISTS 表名(
-   	列名 类型【长度，约束】
-   	列名 类型【长度，约束】
-   	列名 类型【长度，约束】
+   	列名 类型【长度，约束】,
+   	列名 类型【长度，约束】,
+   	列名 类型【长度，约束】,
    	...
    )
    ```
@@ -2225,4 +2242,815 @@ show CREATE view woma_man_avg;
 | -------- | ------------ | ------------------------------- | ----------------------- |
 | 用户变量 | 当前会话     | 会话中的任何位置                | 必须加@，同时不限定类型 |
 | 局部变量 | begin end 中 | 只能在begin end中，并且是第一句 | 一般不加@，限定类型     |
+
+
+
+### 九.存储过程
+
+#### 1)说明
+
+1. 作用
+
+   类似于Java中的方法
+
+2. 含义
+
+   一组预选编译好的sql语句的集合，可以理解为批处理
+
+3. 好处
+
+   - 提高代码的重用性
+   - 简化操作
+   - 减少了编译次数并且减少了和数据库服务器的连接次数，提高了效率
+
+#### 2)语法
+
+##### 1.创建语法
+
+```sql
+create procedure 存储过程名(参数列表)
+begin
+	存储过程体(一组合法的sql语句)
+end
+```
+
+==注意点:==
+
+1. 参数列表包含三部分
+
+   参数模式 参数名 参数类型
+
+   ```sql
+   in name VARCHAR(20)
+   ```
+
+   - 参数模式
+
+     - in
+
+       该参数可以作为输入，也就是该参数需要调用方法入值
+
+     - out
+
+       该参数可以作为输出，也就是该参数可以作为返回值
+
+     - inout
+
+       该参数既可以作为输入也可以作为输出，也就是该参数既需要传入值，又可以返回值
+
+2. 如果存储过程体仅仅只有一条语句，则 begin end 可以省略
+
+3. 存储过程体中的每条sql语句的结尾要求必须加上分号
+
+4. 存储过程的结尾可以使用delimiter 重新设置
+
+   语法
+
+   ```sql
+   delimiter 结束标记
+   ```
+
+##### 2.使用语法
+
+```sql
+call 存储过程名(实参列表)
+```
+
+#### 3)空参存储过程
+
+```sql
+#定义
+delimiter $
+CREATE PROCEDURE insert_age_rank()
+BEGIN
+	
+	INSERT INTO age_rank(`name`,`start`,`end`) VALUES('F',0,10);
+END $
+#调用
+CALL insert_age_rank()$
+```
+
+==注意==
+
+ 在命令行执行存储过程
+
+#### 4)in模式的存储过程
+
+```sql
+delimiter $
+CREATE PROCEDURE exist_data(in col_name VARCHAR(32))
+BEGIN
+		DECLARE cout int DEFAULT 0;
+		SELECT COUNT(*) INTO cout
+		from age_rank 
+		where `name` = col_name;
+		SELECT cout;
+END $
+```
+
+#### 5)out 模式
+
+1. 一个out参数
+
+   ```sql
+   delimiter $
+   CREATE PROCEDURE woman_to_man(in woman_name VARCHAR(32), out man_name VARCHAR(32))
+   begin
+   	SELECT m.`name` into man_name
+   	from woman w INNER JOIN man m 
+   	on w.man_id = m.id
+   	where w.`name` = woman_name;
+   end $
+   
+   set @man_name=''$
+   call woman_to_man('李冰冰',@man_name)$
+   ```
+
+2. 多个out 参数
+
+   ```sql
+   delimiter $
+   CREATE PROCEDURE woman_to_man_age(in woman_name VARCHAR(32), out man_name VARCHAR(32), out man_age INT)
+   begin
+   	SELECT m.`name`, m.age into man_name, man_age
+   	from woman w INNER JOIN man m 
+   	on w.man_id = m.id
+   	where w.`name` = woman_name;
+   end $
+   
+   SET @man_age=0$
+   
+   call woman_to_man_age('李冰冰',@man_name,@man_age)$
+   ```
+
+
+#### 6)inout模式
+
+```sql
+CREATE PROCEDURE argument_double(inout a int, inout b int)
+begin
+			SET a = a * 2;
+			set b = b * 2;
+end $
+
+set @a_1=2$
+set	@a_2=4$
+call argument_double(@a_1,@a_2)$
+```
+
+#### 7)删除存储过程
+
+1. 语法
+
+   ```sql
+   drop procedure 存储过程名
+   ```
+
+2. 练习
+
+   ```sql
+   drop PROCEDURE  woman_to_man_age;、
+   ```
+
+#### 8)查看存储过程的信息
+
+1. 语法
+
+   ```sql
+   show create procedure 存储过程名
+   ```
+
+   ```sql
+   show create PROCEDURE woman_to_man;
+   ```
+
+### 十.函数
+
+#### 1)说明
+
+1. 作用
+
+   类似于Java中的方法
+
+2. 含义
+
+   一组预选编译好的sql语句的集合，可以理解为批处理
+
+3. 好处
+
+   - 提高代码的重用性
+   - 简化操作
+   - 减少了编译次数并且减少了和数据库服务器的连接次数，提高了效率
+
+#### 2)函数与存储过程的区别
+
+|          | 返回值                                  | 作用                   |
+| -------- | --------------------------------------- | ---------------------- |
+| 函数     | 必须有一个，使用retures关键字           | 适合做批量插入，更新   |
+| 存储过程 | 可以没有，也可以有使用(out,inout关键字) | 适合处理数据后返回一个 |
+
+#### 3)语法
+
+##### 1.创建语法
+
+```sql
+create function 函数名(参数列表) returns 返回类型
+begin
+	函数体
+end 
+```
+
+==注意==
+
+1. 参数列表包含两部分:
+
+   参数名 参数类型
+
+2. 函数体
+
+   肯定会有return语句，如果没有回报错
+
+   如果return 语句没有放在函数体最后也不会报错，但不建议
+
+3. 函数体中只有一条语句，begin end 可以省略
+
+4. 使用delimiter 设置结束标记
+
+##### 2.函数的调用
+
+```
+select 函数名(参数列表);
+```
+
+#### 4)例子
+
+##### 1.无参函数
+
+```sql
+delimiter $
+CREATE FUNCTION fun_count() RETURNS INT
+BEGIN
+  DECLARE cou int DEFAULT 0;
+	SELECT count(*) into cou 
+	FROM woman;
+	return cou;
+END $
+
+SELECT fun_count()$
+```
+
+##### 2.有参函数
+
+```sql
+delimiter $
+CREATE FUNCTION fun_woman_to_man( woman_name VARCHAR(32)) RETURNS VARCHAR(32)
+begin
+	DECLARE man_name VARCHAR(32) DEFAULT '';
+	SELECT m.`name` into man_name
+	from woman w INNER JOIN man m 
+	on w.man_id = m.id
+	where w.`name` = woman_name;
+	return man_name;
+end $
+
+SELECT fun_woman_to_man('李冰冰')$
+```
+
+
+
+#### 5)删除存储过程
+
+1. 语法
+
+   ```sql
+   drop function 存储过程名
+   ```
+
+2. 练习
+
+   ```sql
+   drop FUNCTION fun_woman_to_man;
+   ```
+
+#### 6)查看存储过程的信息
+
+1. 语法
+
+   ```sql
+   show create function 存储过程名
+   ```
+
+   ```sql
+   show create function fun_woman_to_man;
+   ```
+
+### 十一.流程控制
+
+#### 1)分支结构
+
+1. IF函数
+
+   - 功能
+
+     实现简单的双分支
+
+   - 语法
+
+     ```
+     IF(表达式1,表达式2,表达式3)
+     ```
+
+     执行顺序: 如果表达式1成立，返回表达式2的值，否则返回表达式3的值
+
+   - 应用
+
+     可以应用到任何地方
+
+     ```sql
+     SELECT IF(1=2,'哈哈哈','呵呵');
+     ```
+
+2. case结构
+
+   - 情况一: 类似于Java中的switch语句，一般用于实现等值判断
+
+     - 语法
+
+       ```
+       case 变量|表达式|字段
+       when 要判断的值 then 返回值1或者语句1;
+       when 要判断的值 then 返回值2或者语句2;
+       ...
+       else 要返回的值n或者语句n;
+       end 【case】;
+       ```
+
+   - 情况二: 类似Java中的多重IF语句，一般用于区间判断
+
+     - 语法
+
+       ```
+       case 
+       when 要判断的条件1 then 返回值1或者语句1;
+       when 要判断的条件1 then 返回值2或者语句2;
+       ...
+       else 要返回的值n或者语句n;
+       end 【case】;
+       ```
+
+   - 特点
+
+     - 如果then后面是值，可以放在任何地方，包括begin end里面和外面
+     - 如果then后面是语句，则只能放在begin end 之中
+     - 如果then后面是语句，则结尾要加分号结尾
+     - 如果then后面是值，则最后不要case，如果是语句，则要加上case
+
+     ```sql
+     SET @age=21;
+     
+     SELECT CASE @age
+     	WHEN 10 THEN '10'
+     	WHEN 20 THEN '20'
+     	ELSE
+     		'其他'
+     END;
+     ```
+
+     ```sql
+     delimiter $
+     CREATE PROCEDURE range_word(in num INT, out rank CHAR(1))
+     begin
+     	CASE 
+     	WHEN num > 100 THEN
+     		set rank='A';
+     	WHEN num > 90 THEN
+     	  SET rank='B';
+     	WHEN num > 80 THEN
+     	  SET rank='C';
+     	ELSE
+     		SET rank='D';
+     	end case;
+     END $
+     
+     #使用
+     set @re=''$
+     call range_word(91,@re)$
+     SELECT @re$
+     ```
+
+3. if结构
+
+   - 功能
+
+     实现多重分支
+
+   - 语法
+
+     ```
+     if 条件1 then 语句1;
+     else if 条件2 then 语句2;
+     ...
+     【else 语句n;】
+     end if;
+     ```
+
+   - 注意
+
+     ==只能应用在begin end中==
+
+     ```sql
+     delimiter $
+     CREATE PROCEDURE range_word(in num INT, out rank CHAR(1))
+     begin
+     	IF num > 100 THEN set rank='A';
+     	ELSEIF num > 90 THEN set rank='B';
+     	ELSEIF num > 80 THEN set rank='C';
+     	ELSE set rank='D';
+       END IF;
+     END $
+     ```
+
+#### 2)循环结构
+
+1. 分类
+
+   - while
+
+     - 语法
+
+       ```sql
+       【标签:】while 循环条件 do
+       	循环体
+        end while 【标签】;
+       ```
+
+   - loop
+
+     - 语法
+
+       ```sql
+       【标签:】loop 
+       	循环体
+        end loop 【标签】;
+       ```
+
+   - repeat
+
+     - 语法
+
+       ```
+       【标签:】repeat  
+       	循环体
+        until 循环结束条件
+        end repeat 【标签】;
+       ```
+
+2. 循环控制语句
+
+   - Iterate 
+
+     类似于continue
+
+   - leave
+
+     类似break	
+
+3. 例子
+
+   ```sql
+   CREATE PROCEDURE insert_data_to_my_test( in num int)
+   begin
+   	DECLARE i int DEFAULT 0;
+   	
+   	a:WHILE i < num DO
+   		SET i = i + 1;
+   		IF MOD(i,2) <> 0 THEN
+   			ITERATE a;
+   		END IF;
+   		insert into my_test(my_name) VALUES(CONCAT('lisi-',i ));
+   	END WHILE a;
+   
+   END $
+   ```
+
+4. 经典例子
+
+   随机生成字符串，插入到表中
+
+   ```sql
+   delimiter $
+   CREATE PROCEDURE insert_data_to_my_test_two(in num int)
+   begin
+   	 
+   	 DECLARE all_str char(26) DEFAULT 'abcdefghijklmnopqrstuvwxyz';
+   	 DECLARE last_str varchar(26) DEFAULT '';
+   	 DECLARE len int DEFAULT 0;
+   	 DECLARE i int DEFAULT 0;
+   	 DECLARE loc int DEFAULT 0;
+   	 
+   	 WHILE i < num DO
+   	 
+   			set len = FLOOR(RAND() * 26) + 1;
+   			set last_str = '';
+   			
+   			WHILE len > 0 DO
+   			 set loc = FLOOR(RAND() * 26) + 1;
+   			 SET last_str = CONCAT(last_str,SUBSTR(all_str,loc,1));
+   			 set len = len - 1;
+   			END WHILE;
+   			
+   			INSERT into my_test(my_name) VALUES(last_str);
+   			SET i = i + 1;
+   	 END WHILE;
+   end $
+   ```
+
+   去重之后插入
+
+   ```sql
+   delimiter $
+   CREATE PROCEDURE insert_data_to_my_test_two(in num int)
+   begin
+   	 
+   	 DECLARE all_str char(26) DEFAULT 'abcdefghijklmnopqrstuvwxyz';
+   	 DECLARE last_str varchar(26) DEFAULT '';
+   	 DECLARE len int DEFAULT 0;
+   	 DECLARE i int DEFAULT 0;
+   	 DECLARE loc int DEFAULT 0;
+   	 DECLARE flag int DEFAULT 0;
+   	 
+   	 a:WHILE i < num DO
+   	 
+   			set len = FLOOR(RAND() * 26) + 1;
+   			set last_str = '';
+   			set flag = 0;
+   			
+   			WHILE len > 0 DO
+   			 set loc = FLOOR(RAND() * 26) + 1;
+   			 SET last_str = CONCAT(last_str,SUBSTR(all_str,loc,1));
+   			 set len = len - 1;
+   			END WHILE;
+   			
+   			SELECT COUNT(*) into flag 
+   			FROM my_test
+   			where my_name = last_str;
+   			
+   			IF flag > 0 THEN
+   				ITERATE a;
+   			END IF;
+   
+   			INSERT into my_test(my_name) VALUES(last_str);
+   			SET i = i + 1;
+   		
+   	 END WHILE a;
+   end $
+   ```
+
+
+### 十二.索引
+
+#### 1)索引是什么
+
+1. 索引是帮助mysql高效的获取数据的数据结构
+
+   ==排好序的快速查找数据结构==(B树的结构)
+
+2. 数据本身除外，数据库还维护着一个满足特定查找算法的数据结构，这些数据结构以某种方式指向数据，这样就可以在这些数据结构的基础上实现高级查询算法，这种数据结构就是索引。
+
+3. 一般来说索引本身也很大，不可能全部储存在内存中，因此索引往往以索引文件的形式存储在磁盘上
+
+#### 2)索引的优势与劣势
+
+##### 1优势
+
+1. 通过创建唯一性索引，可以保证数据库表中每一行数据的唯一性.
+2. 可以大大加快数据的检索速度，这也是创建索引的最主要的原因
+3. 可以加速表和表之间的连接，特别是在实现数据的参考完整性方面特别有意义
+4. 在使用分组和排序子句进行数据检索时，同样可以显著减少查询中分组和排序的时间。
+5. 通过使用索引，可以在查询的过程中，使用优化隐藏器，提高系统的性能。
+
+##### 2.劣势
+
+1. 创建索引和维护索引要耗费时间，这种时间随着数据量的增加而增加。
+2. 索引需要占物理空间，除了数据表占数据空间之外，每一个索引还要占一定的物理空间，如果要建立聚簇索引，那么需要的空间就会更大。
+3. 当对表中的数据进行增加、删除和修改的时候，索引也要动态的维护，这样就降低了数据的维护速度。
+
+#### 3)索引分类
+
+##### 1.单值索引
+
+即一个索引只包含单个列，一个表可以有多个单列索引
+
+##### 2.唯一索引
+
+索引列的值必须唯一，但允许为null
+
+##### 3.复合索引
+
+即一个索引包含多个列
+
+#### 4)索引的操作
+
+##### 1)索引的创建
+
+1. 方式一
+
+   ```sql
+   create 【unique】index 索引名 on 表名(表的列名1(长度),表的列名1(长度)...)
+   ```
+
+   ```sql
+   CREATE UNIQUE INDEX name_index on my_test(my_name);
+   ```
+
+2. 方式二
+
+   ```sql
+   alter table 表名 add 【unique】index 索引名 (表的列名1(长度),表的列名1(长度)...)
+   ```
+
+   ```sql
+   alter TABLE my_test add UNIQUE INDEX name_index (my_name);
+   ```
+
+   - 添加PRIMARY KEY（主键索引）  
+
+     ```sql
+     ALTER TABLE `table_name` ADD PRIMARY KEY ( `column` )
+     ```
+
+   - 添加UNIQUE(唯一索引) 
+
+     ```sql
+     ALTER TABLE `table_name` ADD UNIQUE ( `column` ) 
+     ```
+
+   - 添加INDEX(普通索引) 
+
+     ```sql
+     ALTER TABLE `table_name` ADD INDEX index_name ( `column` )
+     ```
+
+   - 添加FULLTEXT(全文索引)
+
+     ```sql
+     ALTER TABLE `table_name` ADD FULLTEXT ( `column`) 
+     ```
+
+   - 添加多列索引 
+
+     ```sql
+     ALTER TABLE `table_name` ADD INDEX index_name ( `column1`, `column2`, `column3`)
+     ```
+
+##### 2)索引的删除
+
+```sql
+drop index 索引名 on 表名
+```
+
+```sql
+DROP INDEX name_index on my_test;
+```
+
+##### 3)查看索引
+
+```sql
+show index 索引名 from 表名
+```
+
+```sql
+show INDEX from my_test; 
+```
+
+
+
+#### 5）索引结构
+
+##### 1)BTree索引
+
+##### 2)Hash索引
+
+##### 3)full-text全文索引
+
+##### 4)R-Tree索引
+
+#### 6)可以创建索引的条件
+
+1. 主键自动建立唯一索引
+2. 频繁作为查询条件的字段应该创建索引
+3. 查询中与其他表关联的字段，外键关系建立索引
+4. 频繁更新的字段不适合创建索引，因为每次更新还要更新索引，加重了io负担
+5. 在高并发下倾向创建组合索引
+6. 查询中的排序字段应该建立索引。排序字段若通过索引将大大提高排序速度
+7. 查询中的统计或者分组字段应该建立索引。
+
+#### 7)不可以创建索引的条件
+
+1. 表记录太少
+2. 经常增删改的表或者字段
+3. 数据重复并且分布均匀的表字段
+4. where条件里用不到的字段不要创建索引
+
+### 十三.explain
+
+#### 1)介绍
+
+	使用explain关键字可以模拟优化器执行sql查询语句，从而知道mysql是如何处理你的sql语句，分析查询语句或者表结构的性能瓶颈
+
+#### 2）作用
+
+1. 获取表的读取顺序
+2. 数据读取操作的操作类型
+3. 哪些索引可以使用
+4. 哪些索引被实际使用了
+5. 表之间的引用
+6. 每张表有多少行被优化器查询
+
+#### 3）使用
+
+```sql
+explain sql语句
+```
+
+```sql
+explain SELECT * from my_test LIMIT 90,10;
+```
+
+执行结果:
+
+![](./image/mysql-explain/column_name.png)
+
+#### 4)explain执行结果列解释
+
+##### 1) id
+
+1. 含义
+
+   select 查询的序列号，包含一组数字，表示查询中执行select 子句或者操作表的顺序
+
+2. 出现的三种情况
+
+   - id相同:执行顺序由上至下
+
+   - id不同:如果是子查询，id的序号会递增，id值越大优先级越高，越先被执行
+
+   - id相同不同:同时存在（如果相同id，则走第一个规律，不同走第二个）
+
+
+##### 2)select_type
+
+1. 含义
+
+   查询的类型，主要是用于区别普通查询，联合查询，子查询等查询
+
+ 2.可选类型
+
+- simple
+
+  进行不需要Union操作或不含子查询的简单select查询时，响应查询语句的select_type 即为simple（查询中包含连接的情形也一样）。无论查询语句是多么复杂，执行计划中select_type为simple的单位查询一定只有一个。最外侧的select查询的select_type通常为simple
+
+  ```sql
+  SELECT `user_id`, `amount` FROM `coupons`  WHERE `locked`= 0 AND `expired_at`= 1476892800 
+  ```
+
+- primary
+
+  一个需要Union操作或含子查询的select查询执行计划中，位于最外层的select_type即为primary。与simple一样，select_type为primary的单位select查询也只存在1个，位于查询最外侧的select单位查询的select_type为primary
+
+- union
+
+  由union操作联合而成的单位select查询中，除第一个外，第二个以后的所有单位select查询的select_type都为union。union的第一个单位select的select_type不是union，而是DERIVED。它是一个临时表，用于存储联合（Union）后的查询结果。
+
+  ```sql
+  explain 
+  select * from(
+  (select emp_no from employees el limit 10)
+  union all 
+  (select emp_no from employees e2 limit 10)
+  union all
+  (select emp_no from employees e3 limit 10)
+  ) tb;
+  ```
+
+  ![](./image/mysql-explain/primary_union.png)
+
+  3个联合（union）的select 查询中，只有第一个（el数据表）不是union，其余两个的select_type均为union。union的第一个查询设置为代表整个union结果的select_type类型。此外要将3个子查询的结果用union all进行联合，并创建临时表进行使用，所以union all的第一个查询的select_type为DERIVED。
+
+- derived
+
+  产生虚拟表的产生查询的selectType
+
+  ```sql
+  EXPLAIN SELECT ar.`name` ,wa.ag from (
+  SELECT AVG(w.age) ag
+  FROM woman w
+  GROUP BY age
+  ) wa left JOIN age_rank  ar
+  on wa.ag > ar.`start` and wa.ag <= ar.`end`;
+  ```
+
+  ![](./image/mysql-explain/derived.png) 
+
+  上面的虚拟表derived2是由下面的w表执行查询产生的，索引w的selec_type是derived
 
