@@ -3054,3 +3054,559 @@ explain SELECT * from my_test LIMIT 90,10;
 
   上面的虚拟表derived2是由下面的w表执行查询产生的，索引w的selec_type是derived
 
+- UNION RESULT
+
+  UNION操作的结果，id值通常为NULL
+
+  ```sql
+  EXPLAIN SELECT * from woman where id > 5 UNION SELECT * from woman where id > 4
+  ```
+
+  ![](./image/mysql-explain/union_result.png)
+
+- subquery
+
+  在select或者query列表中包含子查询
+
+##### 3)table
+
+	显示查询来自哪一张表
+
+##### 4)type
+
+1. 含义
+
+   显示查询用了哪种类型
+
+2. 可以选的类型
+
+   - system
+
+     CONST的特例，当表上只有一条元组匹配
+
+   - const 
+
+     表示通过索引一次就找到了，const用于比较primary key或者union索引。因为这两个都是唯一的，比较一次就可以查到
+
+     ```sql
+     EXPLAIN SELECT * from woman where id='212sd2kld';
+     ```
+
+     const在==单表==查询中使用到了唯一索引,只查到了==最多一条==数据
+
+   - eq_ref
+
+     参与连接运算的表是内表（在代码实现的算法中，两表连接时作为循环中的内循环遍历的对象，这样的表称为内表）。
+
+     基于索引（连接字段上存在唯一索引或者主键索引，且操作符必须是“=”谓词，索引值不能为NULL）做扫描，使得对外表的一条元组，内表只有==唯一一条元组==与之对应。
+
+     ==内表就是左外查询的右表，右外查询的左表==
+
+     ```sql
+     EXPLAIN SELECT w.* from woman w left JOIN man m 
+     on w.man_id = m.id;
+     ```
+
+     ![](./image/mysql-explain/eq_ref.png)
+
+     ==多表==查询中内表使用了唯一索引查询,只查到了==最多一条==数据，则对应的查询的type类型就是eq_ref
+
+   - ref
+
+     非唯一索引扫描，返回匹配的某个==单值==的所有行(==多行==结果)
+
+     ```sql
+     #创建索引
+     CREATE index idx_man_id on woman(man_id);
+     
+     EXPLAIN SELECT * from woman where man_id='212sd2kld';
+     ```
+
+   - range
+
+      范围扫描，基于索引做范围扫描，为诸如BETWEEN，IN，>=，LIKE类操作提供支持
+
+     ```sql
+     EXPLAIN SELECT w.age from woman w where w.age >= 28;
+     ```
+
+     ==注意:==
+
+     1. 只遍历==索引的一部分==，是range，==全部==是index
+
+        如果上面的sql中age最小值小于28，则是range
+
+        如果上面的sql中age最小值大于28，则是index,因为要查找全部索引
+
+   - index
+
+     遍历索引，获取到了数据
+
+     ```sql
+     EXPLAIN SELECT w.age from woman w where w.age >= 28;
+     ```
+
+   - all
+
+     全表扫描或者范围扫描：不使用索引，顺序扫描，直接读取表上的数据（访问数据文件）
+
+##### 5)possible_keys
+
+	可能用在查询中的索引，一个或者多个
+
+##### 6)key
+
+   实际使用的索引，如果为null,则没有使用索引
+
+- 覆盖索引
+
+  就是select的数据列只用从索引中就能够取得，不必从数据表中读取，换句话说查询列要被所使用的索引覆盖。
+
+  在 extra中标有==using index== 表明使用了覆盖索引
+
+##### 7)key_len
+
+	表示索引中使用的字节数，可以通过该列计算查询中使用的索引长度，在不损失精确性的情况下，长度越短越好
+	
+	该值显示的是可能的最大长度，并非实际的值。即key_len是根据定义计算而得，不是通过表内检索出来的
+
+##### 8)ref
+
+	关联其他表或者条件的参数类型或者来源
+
+```sql
+EXPLAIN SELECT * from 
+woman w INNER JOIN man m  on w.man_id = m.id 
+where w.age = 30;
+```
+
+![](./image/mysql-explain/ref.png)
+
+const 表明：w.age = 30中的30是常量
+
+crud.w.man_id 表明 w.man_id = m.id 中的w.man_id 来自数据库crud的w表的man_id字段
+
+##### 9)rows
+
+查询记录所需要读取的行数
+
+##### 10)extra
+
+额外信息
+
+1. using index
+
+   出现这个说明mysql使用了==覆盖索引==，避免访问了表的数据行，效率不错！
+
+2. using where
+
+   这说明服务器在存储引擎收到行后将进行过滤。有些where中的条件会有属于索引的列，当它读取使用索引的时候，就会被过滤，所以会出现有些where语句并没有在extra列中出现using where这么一个说明。
+
+3. using temporary
+
+   这意味着mysql对查询结果进行排序的时候使用了一张临时表。==效率不行==，需要优化
+
+4. using filesort
+
+   这个说明mysql会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取。==效率不行==，需要优化
+
+#### 5)两表关联索引建立(相反加)
+
+1. 如果是左外，则左边的表都要遍历，在右边表中查询，所以应该在右表关联字段建立索引
+2. 如果是右外，则右边的表都要遍历，在左边表中查询，所以应该在左表关联字段建立索引
+3. 多张表一次类推
+
+#### 6)索引失效
+
+##### 1.最佳做前缀
+
+- 如果索引了多列，则查询的顺序要与索引的顺序一致，不能出现最前面的不一致或者中间一致
+
+  ```sql
+  ALTER TABLE woman add index idx_name_age_man_id (`name`,`age`,`man_id`);
+  ```
+
+  - 全都有
+
+    ```sql
+    EXPLAIN SELECT * from woman where  `name`='aas' and age = 34 and man_id='sas';
+    ```
+
+    ![](./image/mysql-explain/all.png)
+
+  - 如果没有头部
+
+    ```sql
+    EXPLAIN SELECT * from woman where   age = 34 and man_id='sas';
+    ```
+
+    ![](./image/mysql-explain/no_header.png)
+
+  - 没有中间
+
+    ```sql
+    EXPLAIN SELECT * from woman where  `name`='aas'  and man_id='sas';
+    ```
+
+    ![](./image/mysql-explain/no_center.png)
+
+  - 尾部与中间一样
+
+  总结：最好与创建索引时的列一样，如果不一样，==一定要保证头部是一样的==，不然该索引不会使用
+
+##### 2)请不要在索引列上做任何操作
+
+1. 操作包括
+
+   (计算，函数，(自动或者手动)类型转换)
+
+2. 结果
+
+   会导致索引失效，转向搜索全表
+
+3. 例子
+
+   ```sql
+   EXPLAIN SELECT * from woman where  left(`name`,2)='aas';
+   ```
+
+   ![](./image/mysql-explain/add_column.png)	
+
+   添加了left(`name`,2)之后，索引失效
+
+##### 3)存储引擎不能使用索引中范围条件右边的列
+
+```sql
+EXPLAIN SELECT * from woman where  `name`='aas' and age > 34 and man_id='sas';
+```
+
+![](./image/mysql-explain/range.png)
+
+总结:==在条件中加了 > , < ,in , between and ,在该字段之后的字段不会使用到索引中==
+
+##### 4)尽量使用覆盖索引，减少使用select *
+
+##### 5)使用不等号(!=, <>)会使索引失效
+
+```sql
+EXPLAIN SELECT * from woman where  `name`!='aas';
+```
+
+![](/Users/tgy/Documents/Java/study-doc/mysql/image/mysql-explain/not_eq.png)
+
+##### 6)使用 is not null 或者 is null  会使索引失效
+
+##### 7) like ==左边==使索引失效
+
+```sql
+EXPLAIN SELECT * from woman where  `name` like '%as';
+```
+
+![](./image/mysql-explain/like_left.png)
+
+==使用覆盖索引，解决like使索引失效问题==
+
+```sql
+EXPLAIN SELECT id, age,`name` from woman where  `name` like 'a%s%';
+```
+
+![](./image/mysql-explain/cover_index_like.png)
+
+##### 8)字符串不加单引号会使索引失效
+
+```sql
+EXPLAIN SELECT * from woman where `name` = 2000;
+```
+
+![](./image/mysql-explain/string_no_quote.png)
+
+##### 9)少用or，用or也会使索引失效
+
+```sql
+EXPLAIN SELECT * from woman where `name` = '2000' or age = 23;
+```
+
+![](./image/mysql-explain/or_index.png)
+
+#### 7）练习
+
+![](./image/mysql-explain/all_pra.png)
+
+#### 8)索引失效总结
+
+	==全值匹配我最爱，最左前缀要遵守；==
+
+	==带头大哥不能死，中间兄弟不能断；==
+
+	==索引列上少计算，范围之后全失效；==
+
+	==like百分写最右，覆盖索引不写星；==
+
+	==不等空值还有or，索引失效要少些；==
+
+	==var引号不能丢，sql高级也不难；==
+
+#### 9)慢sql处理过程
+
+##### 1.操作
+
+1. 观察，至少跑一天，看看生产的慢sql情况
+2. 开启慢查询日志，设置阀值，比如超过5秒的就是慢sql，并把这些sql抓取出来
+3. explain  + 慢sql分析
+4. show profile
+5. 运营经理或者DBA，进行sql数据库服务器的参数调优
+
+##### 2.过程
+
+1. 慢查询的开启并捕获
+2. explain + 慢sql分析
+3. show profile 查询SQL在mysql服务器里面的执行细节和生命周期情况
+4. SQL数据库服务器的参数调优
+
+#### 10)小表驱动大表
+
+##### 1)优化原则
+
+小表驱动大表，即小的数据集驱动大的数据集
+
+1. in
+
+   ```sql
+   select * from A where id 
+   in (select id from B)
+   
+   #等价于
+   select id from B;
+   select * from A where B.id = A.id 
+   ```
+
+2. exists
+
+   ```sql
+   select * from A where 
+   exists 
+   (select 1 from B where A.id = B.id)
+   
+   #等价于
+   select * from A;
+   select 1 from B where B.id = A.id
+   ```
+
+   ==当B表的数据小于A表时，in 优于exists==
+
+   ==当B表的数据大于A表时，exists 优于in==
+
+##### 2)exists总结
+
+1. 语法
+
+   ```sql
+   select * from 表明 where exists (子查询)	
+   ```
+
+   将主查询的数据，放在子查询中做条件验证，根据验证结果(true 或者false)来决定查询的结果是否保留
+
+2. 总结
+
+   - exists(子查询) 只返回true或者false，因此子查询中select * from 也可以是select 1 或者 selec 'x',官方表明实际执行过程中会忽略select 清单，因此没有区别
+   - Exists 子查询的实际执行过程可能经过了优化而不是我们理解的逐句对比。如果担心效率问题，可进行实际验证以确定是否有效率问题
+   - exists 子查询往往也可以用条件表达式，其他子查询或者join来替代，何种最优需要具体问题具体分析 
+
+
+
+#### 11) order by 优化
+
+
+
+##### 1.Mysql两种排序方式
+
+1. 文件排序
+2. 扫描有序索引排序(==推荐==)
+
+##### 2.Mysql 能为排序与查询使用相同索引
+
+##### 3.order by 使用情况
+
+假设索引建立是:
+
+```sql
+alter A add index idx_a_b_c (a,b,c);
+```
+
+1. Order by 能使用索引最左前缀
+
+   ```sql
+   order by a
+   order by a,b
+   order by a,b,c
+   order by a desc, b desc, c desc
+   ```
+
+2. 如果where 使用索引的最左前缀定义为常量，则order by能使用索引
+
+   ```sql
+   where a=const order by b,c
+   where a=const order by b=const order by c
+   where a=const order by b>const order by b,c
+   ```
+
+3. ==不能==使用索引的order by
+
+   ```sql
+   order by a asc,b desc,c asc #排序不一样
+   where g=const order by b,c #丢失a索引
+   where a=const order by c #丢失b索引
+   where g=const order by a,d #d不是索引的一部分
+   where a in (a1,a2,a3,...) order by b,c #对于排序来说，多个相等条件也是范围查询
+   ```
+
+#### 12)group by 优化
+
+1. order by适用的group by都使用
+
+2. group by的实质是先排序再分组，遵照索引建立的最佳左前缀
+
+3. 当无法使用索引列，增大max_length_for_sort_data参数的设置+ 增大sort_buffer_size的参数设置
+
+4. where 高于having，能写在where限定的条件就不要写在having中
+
+
+#### 13）慢查询日志
+
+1. 查询是否设置了
+
+   ```sql
+   show VARIABLES LIKE '%slow_query_log%';
+   ```
+
+2. 设置慢查询日志
+
+   ```sql
+   set global slow_query_log=1
+   ```
+
+3. 设置阀值
+
+   ```sql
+   #查看默认值:默认是10秒
+   show VARIABLES LIKE '%long_query_time%';
+   #设置时间为3秒
+   set global long_query_time=3;
+   ```
+
+4. 查看日志文件的位置
+
+   ```sql
+   show VARIABLES LIKE '%slow_query_log_file%';
+   ```
+
+5. 查询有多少条慢sql
+
+   ```sql
+   show GLOBAL STATUS LIKE '%slow_queries%';
+   ```
+
+6. 借助mysqldumpslow明令使用
+
+   - 可加的参数
+
+     ![](./image/mysql-explain/mysqldumpslow_help.png)
+
+   - 例子
+
+     ![](./image/mysql-explain/mysqldumpslow_eg.png)
+
+#### 14)批量插入数据
+
+##### 1)创建表
+
+- 员工表
+
+  ```sql
+  create table `employee`(
+   `id` varchar(32) PRIMARY KEY,
+   `employee_name` VARCHAR(32) not null,
+   `employee_age` int DEFAULT 0,
+   `department_id` int
+  );
+  ```
+
+- 部门表
+
+  ```sql
+  create table `department`(
+  	`id` int auto_increment,
+  	`department_name` varchar(32) not null,
+  	PRIMARY key(id)
+  );
+  ```
+
+##### 2)函数和存储过程
+
+- 生成随机字符串的函数
+
+  ```sql
+  delimiter $
+  CREATE FUNCTION random_str(num INT) RETURNS VARCHAR(32)
+  BEGIN
+  	DECLARE all_str VARCHAR(26) DEFAULT 'abcdefghijklmnopqrstuvwxyz';
+  	DECLARE return_str VARCHAR(32) DEFAULT '';
+  	DECLARE i int DEFAULT 0;
+  	
+  	WHILE i < num DO
+  		set return_str = CONCAT(return_str,SUBSTR(all_str,FLOOR(RAND() * 26) + 1,1));
+  		set i = i + 1;
+  	END WHILE;
+  	return return_str;
+  end $
+  ```
+
+- 生成随机整数
+
+  ```sql
+  drop FUNCTION if EXISTS rand_int$
+  CREATE FUNCTION rand_int(base int, rand int) returns Int
+  begin
+  
+  	DECLARE return_int int DEFAULT 0;
+  	set return_int = floor(base + RAND() * rand);
+  	return return_int;
+  end $
+  ```
+
+- 插入数据的存储过程
+
+  ```sql
+  drop PROCEDURE if EXISTS insert_data_to_emp_dep$
+  CREATE PROCEDURE insert_data_to_emp_dep(in num int)
+  BEGIN
+  	DECLARE i int DEFAULT 0;
+  	DECLARE flag int DEFAULT 0;
+  
+  	SELECT COUNT(*) into flag from department;
+  	-- 	手动管理事务
+  	set autocommit = 0;
+  	WHILE i < num DO
+  		IF  flag = 0 and i < 10 THEN
+  			INSERT into department(`department_name`) VALUES(CONCAT('人事部-',i + 1));
+  		END IF;	
+  		insert into employee(id,employee_name,employee_age,department_id) VALUES(random_str(15),random_str(9),rand_int(20,30),rand_int(1,10));
+  		set i = i + 1;
+  	END WHILE;
+  	commit;
+  end $
+  ```
+
+##### 3)设置log_bin_trust_function_creators
+
+```sql
+show VARIABLES LIKE '%log_bin_trust_function_creators%';
+set GLOBAL log_bin_trust_function_creators = 1;
+```
+
+##### 4)插入随机数
+
+```sql
+call insert_data_to_emp_dep(500000)$
+```
+
