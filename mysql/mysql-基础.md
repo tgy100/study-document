@@ -3335,15 +3335,15 @@ EXPLAIN SELECT * from woman where `name` = '2000' or age = 23;
 #### 8)索引失效总结
 
 	==全值匹配我最爱，最左前缀要遵守；==
-
+	
 	==带头大哥不能死，中间兄弟不能断；==
-
+	
 	==索引列上少计算，范围之后全失效；==
-
+	
 	==like百分写最右，覆盖索引不写星；==
-
+	
 	==不等空值还有or，索引失效要少些；==
-
+	
 	==var引号不能丢，sql高级也不难；==
 
 #### 9)慢sql处理过程
@@ -3610,3 +3610,71 @@ set GLOBAL log_bin_trust_function_creators = 1;
 call insert_data_to_emp_dep(500000)$
 ```
 
+#### 15)show Profile的使用
+
+##### 1.作用
+
+	查询sql各个步骤具体使用的时间以及各种资源
+
+##### 2.使用过程
+
+1. 开启
+
+   ```sql
+   #查看
+   show VARIABLES like '%profiling%';
+   #设置
+   set profiling=on;
+   ```
+
+2. 查看所有的sql
+
+   ```sql
+   show PROFILES;
+   ```
+
+3. 查看指定sql
+
+   ```sql
+   show PROFILE cpu,block io for QUERY 53;
+   ```
+
+   可以选的参数
+
+   ![](./image/mysql-explain/profile_arg.png)
+
+
+##### 3.出现如下列说明sql有问题
+
+1. Coverting heap to myisam 
+
+   查询结果太大，内存不够往磁盘上面搬
+
+2. creating tmp table
+
+   创建临时表(拷贝数据到临时表，用完删除)
+
+3. Coping to tmp table on disk 
+
+   把内存中临时的表复制到磁盘中
+
+4. locked
+
+#### 16)全局查询日志
+
+1. 开启
+
+   ```sql
+   #查看
+   SHOW VARIABLES LIKE '%general_log%';
+   #开启
+   set GLOBAL general_log=on;
+   #设置输出到表中
+   SET GLOBAL log_output='table';
+   ```
+
+2. 使用
+
+   ```sql
+   SELECT * from mysql.general_log;
+   ```

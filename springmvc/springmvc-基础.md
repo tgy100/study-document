@@ -386,28 +386,270 @@ public void updateModel(NativeWebRequest request, ModelAndViewContainer containe
 
 #### 10.@ModelAttribute
 
-```
-RequestMappingHandlerAdapter invokeHandlerMethod
-modelFactory.initModel(webRequest, mavContainer, invocableMethod);
-```
+1. 作用
 
-```java
-public void initModel(NativeWebRequest request, ModelAndViewContainer container, HandlerMethod handlerMethod)
-			throws Exception {
+   提前在mavContainer容器中放入数据库中的数据，使得在页面上没有提交的数据在这里填充到对应的model中，在接下来的update中不至于把数据库中的字段修改为null
 
-	Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
-	container.mergeAttributes(sessionAttributes);
-	invokeModelAttributeMethods(request, container);
+2. 使用
 
-	for (String name : findSessionAttributeArguments(handlerMethod)) {
-		if (!container.containsAttribute(name)) {
-			Object value = this.sessionAttributesHandler.retrieveAttribute(request, name);
-		if (value == null) {
-				throw new HttpSessionRequiredException("Expected session attribute '" + name + "'", name);
-			}
-			container.addAttribute(name, value);
-		}
-	}
-}
-```
+   - 在指定的controller类中写一个方法，方法的上面加上@ModelAttribute,参数就是需要什么就加上，Spring会自动填充
+
+     ```sql
+     @ModelAttribute()
+     public void before(@RequestParam(value = "id",required = false) String id ,ModelMap modelMap){
+     
+             if (id != null){
+                 
+                 //从数据库中查找对应id的Person数据
+                 Person person = new Person();
+                 person.setAge(23);
+                 //把从数据库中查到的数据放到modelMap中,这个的key要与下面@ModelAttribute修饰的参数的value值一致，如果@ModelAttribute没写，则直接是参数类型名小写
+                 modelMap.put("person",person);
+             }
+         }
+     ```
+
+   - 在需要接收model的地方
+
+     ```sql
+     @PostMapping(value = "/modelAttributeTest")
+     public String modelAttributeTest(@ModelAttribute(value = "person") Person person){
+     
+         System.out.println(person);
+         return  "message";
+     }
+     ```
+
+     ==注意:==
+
+     ==如果没有加@ModelAttribute，默认参数为类名小写==
+
+3. 源码分析
+
+   1. @ModelAttribute注解标记的方法执行位置
+
+      ```java
+      RequestMappingHandlerAdapter invokeHandlerMethod
+      modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+      ```
+
+      ```java
+      public void initModel(NativeWebRequest request, ModelAndViewContainer container, HandlerMethod handlerMethod)
+      			throws Exception {
+      
+      	Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
+      	container.mergeAttributes(sessionAttributes);
+          //调用有@ModelAttribute注解标记的方法，把数据包装到container中
+      	invokeModelAttributeMethods(request, container);
+      
+          //findSessionAttributeArguments 查找@ModelAttribute标记的参数的value值,同时在@SessionAttributes的value中要存在对应的值
+      	for (String name : findSessionAttributeArguments(handlerMethod)) {
+              //如果container里面没有，则去session域中查找
+      		if (!container.containsAttribute(name)) {
+      			Object value = this.sessionAttributesHandler.retrieveAttribute(request, name);
+                  //session域中没查到，就抛异常
+      		if (value == null) {
+      				throw new HttpSessionRequiredException("Expected session attribute '" + name + "'", name);
+      			}
+      			container.addAttribute(name, value);
+      		}
+      	}
+      }
+      ```
+
+   2. 有@ModelAttribute参数的处理
+
+      ```java
+      //在 ModelAttributeMethodProcessor 类的resolveArgument方法中调用如下方法获取属性名对应的key
+      String name = ModelFactory.getNameForParameter(parameter);
+      ```
+
+      ```java
+      public static String getNameForParameter(MethodParameter parameter) {
+          //获取参数的ModelAttribute注解
+      	ModelAttribute ann = parameter.getParameterAnnotation(ModelAttribute.class);
+          //如果加了ModelAttribute，则取注解里面的value对应的值
+      	String name = (ann != null ? ann.value() : null);
+          //如果没有，则调用Conventions.getVariableNameForParameter(parameter)，获取参数类型名小写
+      	return (StringUtils.hasText(name) ? name : Conventions.getVariableNameForParameter(parameter));
+      }
+      ```
+
+4. @SessionAttributes引发的异常
+
+   There was an unexpected error (type=Internal Server Error, status=500).
+   ==Expected session attribute 'person'==
+
+   在源码解析的第一点的==initModel==方法注释中
+
+
+#### 11.自定义视图解析器
+
+1. 定义一个继承View接口的类MyView
+
+   ```java
+   public class MyView implements View {
+       @Override
+       public String getContentType() {
+           return "application/json";
+       }
+   
+       @Override
+       public void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
+   
+            response.getWriter().println("name=tgy");
+       }
+   }
+   ```
+
+2. 在springmvc配置文件中加入到spring容器中
+
+   ```java
+   @Bean("index")
+   public View myView(){
+   
+       return  new MyView();
+   }
+   ```
+
+   注意，该bean的name就是视图名，即controller方法返回的字符串名，如下:
+
+   ```java
+   @GetMapping(value = "/modelAndView")
+   public String modelAndView( ModelMap modelMap){
+   
+   	return  "index";
+   }
+   ```
+
+
+#### 12.重定向
+
+1. 使用
+
+   ```java
+   @GetMapping(value = "/redirectTest")
+   public String redirectTest(){
+   		
+      	
+       //return  "redirect:/modelAndView";或者
+       return  "forward:/modelAndView";
+   }
+   ```
+
+    
+
+2. 源码
+
+   ```
+   UrlBasedViewResolver类的createView方法里面
+   ```
+
+   ```java
+   @Override
+   protected View createView(String viewName, Locale locale) throws Exception {
+   	// If this resolver is not supposed to handle the given view,
+   	// return null to pass on to the next resolver in the chain.
+   	if (!canHandle(viewName, locale)) {
+   		return null;
+   	}
+   
+   	// Check for special "redirect:" prefix.
+   	if (viewName.startsWith(REDIRECT_URL_PREFIX)) {
+   		String redirectUrl = viewName.substring(REDIRECT_URL_PREFIX.length());
+   		RedirectView view = new RedirectView(redirectUrl,
+   				isRedirectContextRelative(), isRedirectHttp10Compatible());
+   		String[] hosts = getRedirectHosts();
+   		if (hosts != null) {
+   			view.setHosts(hosts);
+   		}
+   		return applyLifecycleMethods(REDIRECT_URL_PREFIX, view);
+   	}
+   
+   	// Check for special "forward:" prefix.
+   	if (viewName.startsWith(FORWARD_URL_PREFIX)) {
+   		String forwardUrl = viewName.substring(FORWARD_URL_PREFIX.length());
+   		return new InternalResourceView(forwardUrl);
+   	}
+   
+   	// Else fall back to superclass implementation: calling loadView.
+   	return super.createView(viewName, locale);
+   }
+   ```
+
+#### 13.参数的赋值与验证
+
+1. 源码
+
+   ```
+   ModelAttributeMethodProcessor 类的 resolveArgument 方法
+   ```
+
+   ```java
+   @Override
+   @Nullable
+   public final Object resolveArgument(MethodParameter parameter, @Nullable ModelAndViewContainer mavContainer,
+   		NativeWebRequest webRequest, @Nullable WebDataBinderFactory binderFactory) throws Exception {
+   
+   	String name = ModelFactory.getNameForParameter(parameter);
+   	ModelAttribute ann = parameter.getParameterAnnotation(ModelAttribute.class);
+   	if (ann != null) {
+   		mavContainer.setBinding(name, ann.binding());
+   	}
+   
+   	Object attribute = null;
+   	BindingResult bindingResult = null;
+   
+   	if (mavContainer.containsAttribute(name)) {
+   		attribute = mavContainer.getModel().get(name);
+   	}
+   	else {
+   		// Create attribute instance
+   		try {
+   			attribute = createAttribute(name, parameter, binderFactory, webRequest);
+   		}
+   		catch (BindException ex) {
+   			if (isBindExceptionRequired(parameter)) {
+   				// No BindingResult parameter -> fail with BindException
+   				throw ex;
+   			}
+   			// Otherwise, expose null/empty value and associated BindingResult
+   			if (parameter.getParameterType() == Optional.class) {
+   				attribute = Optional.empty();
+   			}
+   			bindingResult = ex.getBindingResult();
+   		}
+   	}
+   
+   	if (bindingResult == null) {
+   		// Bean property binding and validation;
+   		// skipped in case of binding failure on construction.
+   		WebDataBinder binder = binderFactory.createBinder(webRequest, attribute, name);
+   		if (binder.getTarget() != null) {
+   			if (!mavContainer.isBindingDisabled(name)) {
+                	//绑定参数   
+   				bindRequestParameters(binder, webRequest);
+   			}
+               //验证参数
+   			validateIfApplicable(binder, parameter);
+   			if (binder.getBindingResult().hasErrors() && isBindExceptionRequired(binder, parameter)) {
+   				throw new BindException(binder.getBindingResult());
+   			}
+   		}
+   		// Value type adaptation, also covering java.util.Optional
+   		if (!parameter.getParameterType().isInstance(attribute)) {
+   			attribute = binder.convertIfNecessary(binder.getTarget(), parameter.getParameterType(), parameter);
+   		}
+   		bindingResult = binder.getBindingResult();
+   	}
+   
+   	// Add resolved attribute and BindingResult at the end of the model
+   	Map<String, Object> bindingResultModel = bindingResult.getModel();
+   	mavContainer.removeAttributes(bindingResultModel);
+   	mavContainer.addAllAttributes(bindingResultModel);
+   
+   	return attribute;
+   }
+   ```
+
 
