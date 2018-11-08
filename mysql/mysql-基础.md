@@ -1558,9 +1558,9 @@ CREATE table `stuinfo`(
 	`id` int PRIMARY KEY,#主键
 	 `stu_name` VARCHAR(32) Not null, #非空
 	 `gender` CHAR(1) CHECK(gender='男' or gender='女'), #检查约束
-		`seat` int UNIQUE, #唯一约束
-		`age` int DEFAULT 21, #默认值
-		major_id int REFERENCES major(id)#外键约束
+	 `seat` int UNIQUE, #唯一约束
+	 `age` int DEFAULT 21, #默认值
+  	 major_id int REFERENCES major(id)#外键约束
 );
 
 CREATE table `major`(
@@ -3678,3 +3678,173 @@ call insert_data_to_emp_dep(500000)$
    ```sql
    SELECT * from mysql.general_log;
    ```
+
+### 十四.数据库锁
+
+#### 1)表锁(MyISAM引擎)
+
+1. 表锁引擎必须是==MyISAM==，设置mysql引擎
+
+   - 创建表时设置
+
+     ```sql
+     create 表名(
+     	字段
+     )engine 引擎名
+     ```
+
+     ```sql
+     CREATE TABLE `woman` (
+       `id` varchar(32) NOT NULL,
+       `name` varchar(64) NOT NULL,
+       `age` int(11) NOT NULL,
+       `man_id` varchar(32) DEFAULT NULL,
+       `parent_id` varchar(32) DEFAULT NULL,
+       PRIMARY KEY (`id`),
+       KEY `idx_name_age_man_id` (`name`,`age`,`man_id`)
+     ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+     ```
+
+   - 修改表
+
+     ```java
+     ALTER TABLE 表名 ENGINE = 引擎名;
+     ```
+
+     ```sql
+     ALTER TABLE `crud`.`woman` ENGINE = MyISAM;
+     ```
+
+2. 读写锁语法
+
+   - 读或者写锁语法
+
+     ```sql
+     lock table 表名 READ|write, 表名 READ|write ...
+     ```
+
+   - 解锁
+
+     ```sql
+     unlock tables;
+     ```
+
+   - 查看表锁的情况
+
+     ```sql
+     SHOW OPEN TABLES;
+     ```
+
+3. 读锁特性
+
+   ![](image/mysql-lock/read_lock.png)
+
+4. 写锁特性
+
+   | Session 01                                                   | Session 02                             |
+   | ------------------------------------------------------------ | -------------------------------------- |
+   | LOCK TABLE woman WRITE;  <br>==使用写锁把表锁了==            |                                        |
+   | select * from woman <br>==直接是等待中==                     |                                        |
+   |                                                              | select * from woman ==直接也是等待中== |
+   | UPDATE woman set age = 32 where id='212sd2kld';<br/>INsert into woman(id,`name`,age) VALUES('posasd','赵雅芝',78);<br>可以修改和插入 |                                        |
+   |                                                              | 不能可以修改和插入                     |
+   | SELECT * from books;<br>查询其他表报错:Table 'books' was not locked with LOCK TABLES, |                                        |
+   | Unlock tables;                                               |                                        |
+   |                                                              | select * from woman ==显示结果==       |
+
+5. 总结
+
+   ![](image/mysql-lock/lock_all.png)
+
+   简而言之: ==就是读锁会阻塞写，但是不会阻塞读,而写则会把写与读都阻塞==
+
+6. 表锁分析
+
+   - 查看哪些表锁了
+
+     ```sql
+     show open tables;
+     ```
+
+   - 分析表锁定
+
+     可以通过检查table_locks_waited 和table_locks_immediate 状态变量分析系统上的表锁定
+
+     ```sql
+     show STATUS like 'table%';
+     ```
+
+     table_locks_immediate:产生表级锁定的次数，表示可以立即获取锁的查询次数，每理解获取锁值加1
+
+     table_locks_waited:出现表级锁竞争而发生等待的次数，不能立即获取锁的次数，没等待一次值加1，此值高则说明存在严重的表级锁竞争情况。
+
+     此外，Myisam的读写锁调度是==写优先==，这也是myisam不适合做写为主表的引擎。因为写锁后，其他线程不能做任何操作，大量的更新会使查询很难得到锁，从而造成永远阻塞
+
+#### 2)行锁(Innodb)
+
+1. 特点
+
+   - 行锁，InnoDB存储引擎，开销大，加锁慢;会出现死锁;锁定粒度最小，发生锁冲突的概率最低,并发度也最高。
+   - InnoDB.与MyISAM的最大不同有两点:
+     - 一是支持事务(TRANSACTION) ;
+     - 二是采用了行级锁
+
+2. 行锁的基本演示
+
+   | Session01                                                    | Session02                                                    |
+   | ------------------------------------------------------------ | ------------------------------------------------------------ |
+   | set autocommit=0;<br>UPDATE man set age = 34 where id='3323477'; |                                                              |
+   |                                                              | set autocommit=0;<br>UPDATE man set age = 34 where id='3323477';<br>等待中..... |
+   |                                                              | UPDATE man set age = 35 where id='422322';<br>可以更新       |
+   | commit                                                       |                                                              |
+   |                                                              | UPDATE man set age = 34 where id='3323477';<br/>立即         |
+   |                                                              | commit                                                       |
+
+3. 如果在执行一个SQL语句时MySQL不能确定要扫描的范围，InnoDB表同样会==锁全表==
+
+   ```sql
+   update line_lock set a=1 where b like '%aaa%';
+   ```
+
+4. 间隙锁
+
+   当使用范围更新是，如果中间有的范围没有，则insert 中间行，则该行会被锁住，直到前一个session提交
+
+   | Session01                                                    | Session02                                                    |
+   | ------------------------------------------------------------ | ------------------------------------------------------------ |
+   | set commit;<br>update line_lock set b='rtr' where a BETWEEN 1 and 4; |                                                              |
+   |                                                              | set commit;<br/>INSERT into line_lock VALUES(2,'sadd');<bre>等待中... |
+   | commit;                                                      |                                                              |
+   |                                                              | 执行完成.                                                    |
+   |                                                              | Commit                                                       |
+
+5. 锁定一行
+
+   ```sql
+   SELECT * from line_lock where a=4 for UPDATE;
+   ```
+
+6. 查询锁的效率
+
+   ```sql
+   show status like 'innodb_row_lock%';
+   ```
+
+   ![image-20181108103126241](image/mysql-lock/innodb_lock_view.png)
+
+   Innodb_ row_ lock_ current_ waits: 当前正在等待锁定的数量;
+   Innodb_ row_ lock_ time: 从系统启动到现在锁定总时间长度;
+   Innodb_ row_ lock_ time_ avg: 每次等待所花平均时间;
+   Innodb_ row_ lock_ time_ max: 从系统启动到现在等待最常的一次所花的时间;
+   Innodb_row_lock_waits:系统启动后到现在总共等待的次数;
+   对于这5个状态变量，比较重要的主要是
+   ==Innodb_ row_ lock_ time_ avg (等待平均时长)== ,
+   ==Innodb_ row_ lock_ _waits (等待总次数)==
+   ==Innodb_ row_ lock_ time (等待总时长)这三项==。
+   尤其是当等待次数很高，而且每次等待时长也不小的时候，我们就需要分析系统中为什么会有如此多的等待，然后根据分析结果着手指定优化计划。
+
+### 十五.触发器
+
+https://www.cnblogs.com/duodushu/p/5446384.html
+
+https://www.cnblogs.com/phpper/p/7587031.html

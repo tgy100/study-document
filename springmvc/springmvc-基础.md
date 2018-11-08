@@ -652,4 +652,100 @@ public void updateModel(NativeWebRequest request, ModelAndViewContainer containe
    }
    ```
 
+#### 14.自定义类型转换器(Converter)
+
+1. 实现Converter，或者GenericConverter，或者Formatter接口
+
+   ```java
+   @Component
+   public class MyConverter implements Converter<String,Person> {
+   
+       @Override
+       public Person convert(String s) {
+   
+           String ps[] = s.split("-");
+   
+           if (ps.length == 3){
+   
+               Person person = new Person(ps[0],ps[1],Integer.valueOf(ps[2]));
+   
+               return person;
+           }
+   
+           return null;
+       }
+   }
+   
+   ```
+
+2. 在springboot中的配置
+
+   由于springboot的WebMvcAutoConfiguration类中有如下实现
+
+   ```java
+   @Override
+   public void addFormatters(FormatterRegistry registry) {
+   	for (Converter<?, ?> converter : getBeansOfType(Converter.class)) {
+   		registry.addConverter(converter);
+   	}
+   	for (GenericConverter converter : getBeansOfType(GenericConverter.class)) {
+   		registry.addConverter(converter);
+   	}
+   	for (Formatter<?> formatter : getBeansOfType(Formatter.class)) {
+   		registry.addFormatter(formatter);
+   	}
+   }
+   ```
+
+   即只需要把实现接口的类放到==spring容器==中即可完成类型转换器的安装
+
+3. ==注意点==
+
+   - 如果自定义的类型转换器的转换类型在容器中存在，则自定义的类型无法加到容器中
+
+     ```java
+     private GenericConversionService.ConvertersForPair getMatchableConverters(ConvertiblePair convertiblePair) {
+         GenericConversionService.ConvertersForPair convertersForPair = (GenericConversionService.ConvertersForPair)this.converters.get(convertiblePair);
+         //如果不存在对应的类型转换器，才将该类型转换器加入
+         if (convertersForPair == null) {
+             convertersForPair = new GenericConversionService.ConvertersForPair();
+             this.converters.put(convertiblePair, convertersForPair);
+         }
+     
+         return convertersForPair;
+     }
+     ```
+
+     如果非要替换容器中的类型转换器，则可以在自定义的配置文件(SpringMVCConfig)的addFormatters方法中先删除对应的转换器，然后加上自定义的类型转换器。
+
+     ```java
+     @Override
+     public void addFormatters(FormatterRegistry registry) {
+     
+         registry.removeConvertible(String.class,Integer.class);
+         //自定义类型转换
+         registry.addConverter(new MyConverter());
+     }
+     ```
+
+
+#### 15.@initBinder注解
+
+1. 作用
+
+   用于设置WebDataBinder，在参数赋值和验证中定义自己的规则
+
+2. 使用
+
+   在对应的controller类中写一个方法，该方法不能有返回值，同时参数通常是WebDataBinder类型
+
+   ```java
+   @InitBinder
+   public void coustomDataBinder(WebDataBinder webDataBinder){
+   
+   	//设置不接受的字段
+       webDataBinder.setDisallowedFields("username");
+   }
+   ```
+
 
