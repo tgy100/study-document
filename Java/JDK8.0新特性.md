@@ -532,6 +532,381 @@ System.out.println(sum02.get());
 
    - 常用集合
 
+     ```java
+     peoples.stream().collect(Collectors.toList());
+     peoples.stream().map(Person::getUsername).collect(Collectors.toSet())
+     ```
+
    - 特殊集合
 
-2. 
+     ```java
+     LinkedList<Integer> linkedList = peoples.stream().map(Person::getAge).collect(Collectors.toCollection(LinkedList::new));
+     ```
+
+2. 分组函数
+
+   ```java
+   //年龄总和
+   System.out.println(peoples.stream().collect(Collectors.summingInt(Person::getAge)));;
+   //总数
+   peoples.stream().collect(Collectors.counting());
+   //平均值
+   System.out.println(peoples.stream().collect(Collectors.averagingDouble(Person::getAge)));;
+   //最多值
+   System.out.println(peoples.stream().collect(Collectors.maxBy((x, y) -> {
+       int res = x.getUsername().compareTo(y.getUsername());
+   
+       if (res != 0) {
+           return res;
+       }
+       return x.getAge().compareTo(y.getAge());
+   })).orElse(null));
+   
+   ```
+
+3. 分组
+
+```java
+//分组
+Map<Integer,List<Person>> map = peoples.stream().collect(Collectors.groupingBy(Person::getAge));
+System.out.println(map);
+
+Map<Integer,Map<String,List<Person>>> map1 = peoples.stream().collect(Collectors.groupingBy(Person::getAge,Collectors.groupingBy(Person::getUsername)));
+
+System.out.println(map1);
+```
+
+4.字符串连接
+
+```java
+//使用,连接字符串
+peoples.stream().map(Person::getUsername).collect(Collectors.joining(","));
+//使用,连接字符串，头部使用*,尾部使用=
+peoples.stream().map(Person::getUsername).collect(Collectors.joining(",","****","====="));
+```
+
+#### 4)串型流与并行流
+
+1. 源码
+
+   串型流的创建
+
+   ```java
+   default Stream<E> stream() {
+       return StreamSupport.stream(spliterator(), false);
+   }
+   ```
+
+   并行流的创建(多线程)
+
+   ```java
+   default Stream<E> parallelStream() {
+       return StreamSupport.stream(spliterator(), true);
+   }
+   ```
+
+   ```java
+   peoples.parallelStream()  //创建并行流
+          .map(Person::getAge)
+          .collect(Collectors.toList());
+   ```
+
+2. 原理
+
+   使用的ForkJoin框架(分治处理)
+
+   ```java
+   public class ForkJoinTest extends RecursiveTask<Long> {
+   
+       private Long begin;
+       private Long end;
+       public final static Integer cur = 10000;
+   
+       public ForkJoinTest(Long begin, Long end) {
+           this.begin = begin;
+           this.end = end;
+       }
+   
+       @Override
+       protected Long compute() {
+   
+           if (end - begin <= cur){
+   
+   //            return Stream.iterate(begin, x -> x + 1).limit(end - begin + 1).collect(Collectors.summingInt(x -> x));
+   //            return Stream.iterate(begin, x -> x + 1).limit(end - begin + 1).mapToLong(x->x).sum();
+   
+               long sum = 0;
+   
+               for (long i = begin; i <= end ; i++) {
+                   sum +=i;
+               }
+   
+               return  sum;
+           }
+   
+           long middle = (end + begin) / 2;
+           ForkJoinTest forkJoinTest = new ForkJoinTest(begin,middle);
+           ForkJoinTest forkJoinTest01 = new ForkJoinTest(middle + 1,end);
+   
+           forkJoinTest.fork();
+           forkJoinTest01.fork();
+   
+   
+           return forkJoinTest.join() + forkJoinTest01.join();
+       }
+   }
+   ```
+
+   使用
+
+   ```java
+   @Test
+   public void forkJoinTest() throws Exception{
+   
+       ForkJoinPool forkJoinPool = new ForkJoinPool();
+   
+       ForkJoinTest forkJoinTest = new ForkJoinTest(1l,100000000l);
+   
+       Future<Long> future = forkJoinPool.submit(forkJoinTest);
+   
+       //131547136
+       System.out.println(future.get());
+   }
+   ```
+
+#### 三.Optional容器
+
+##### 1)简介
+
+ 	Optional<T>类(java. util. Optional)是一个容器类，代表一个值存在或不存在，原来用null表示一个值不存在，现在Optional可以更好的表达这个概念。并且可以避免空指针异常。
+
+##### 2.常用api
+
+1. 创建Optional类
+
+   Optional.of(T t) :创建一个Optional实例,参数不能为null
+
+   Optional.empty() :创建一个空的Optional 实例
+
+   Optional.ofNullable(T t):若t不为null, 创建Optional 实例，否则创建空实例
+
+   ```java
+   Optional<Person> personOptional = Optional.of(new Person());
+   personOptional.orElse(new Person());
+   
+   Optional<Person> person = Optional.empty();
+   
+   Optional.ofNullable(null);
+   ```
+
+2. 获取里面的具体值
+
+   isPresent() :判断是否包含值
+
+   orElse(T t) :如果调用对象包含值， 返回该值，否则返回t
+
+   orElseGet (Supplier s) :如果调用对象包含值，返回该值，否则返回s获取的值
+
+   map(Function f):如果有值对其处理，并返回处理后的Optional,否则返回Optional.empty()
+
+   flatMap (Function mapper):与 map类似，要求返回值必须是Optional
+
+   ```java
+   if (person.isPresent()){
+   
+   	System.out.println(person.get());
+   }
+   
+   person.orElseGet(Person::new);
+   int age = person.map(Person::getAge).get();
+   person.flatMap(x-> Optional.of(x)).get();
+   ```
+
+#### 四.接口的默认实现类和静态方法
+
+##### 1)接口的默认实现类
+
+1. 语法
+
+   在接口中的方法前面加上default关键字
+
+   ```
+   default public void  fun(){
+   
+   }
+   ```
+
+   注意：
+
+   - 接口默认方法的”==类优先==”
+
+     若一个接口中定义了一个默认方法，而另外一个父类或接口中又定义了一个同名的方法时，选择父类中的方法。
+
+     ```java
+     //父类
+     public class MyClass {
+     
+         public void  fun(){
+     
+             System.out.println("嘿嘿");
+         }
+     }
+     
+     //接口
+     public interface MyInterface {
+     
+         default public void  fun(){
+     
+     
+             System.out.println("哈哈哈");
+         }
+     }
+     
+     //子类继承父类，实现接口，
+     public class MyInterfaceTest extends MyClass implements MyInterface {
+     
+         public static void main(String[] args) {
+     
+             
+             MyInterfaceTest myInterfaceTest = new MyInterfaceTest();
+             //下面的fun方法属于父类，不是接口中的fun
+             myInterfaceTest.fun();
+     
+         }
+     }
+     ```
+
+   - 如果一个父接口提供一个默认方法，而另一个接口也提供了一个具有相同名称和参数列表的方法(不管方法是否是默认方法)，那么==必须覆盖该方法==来解决冲突
+
+     ```java
+     public interface MyInterface {
+     
+         default public void  fun(){
+     
+     
+             System.out.println("哈哈哈");
+         }
+     }
+     
+     
+     public interface MyInterface01 {
+     
+         default public void  fun(){
+     
+     
+             System.out.println("哈哈哈");
+         }
+     }
+     
+     public class MyTwoInterface implements MyInterface,MyInterface01 {
+     
+         @Override
+         public void fun() {
+     
+             //调用接口MyInterface01的方法
+             MyInterface01.super.fun();
+             //调用接口MyInterface的方法
+             MyInterface.super.fun();
+         }
+     }
+     
+     ```
+
+   2)接口的静态方法
+
+    跟类的静态方法一样，可以直接使用接口名调用
+
+#### 五.重复注解和类型注解
+
+##### 1)重复注解
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD,ElementType.FIELD,ElementType.TYPE})
+@interface MyHints{
+
+    Hint[] value();
+}
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD,ElementType.FIELD,ElementType.TYPE})
+@Repeatable(MyHints.class)
+public @interface Hint {
+
+    String value() default "sadsa";
+
+}
+```
+
+```java
+public class MyAnnotaionClass {
+
+    @Hint("sad")
+    @Hint("pppp")
+    public void fun1(){
+
+    }
+
+
+    public static void main(String[] args) throws Exception {
+
+
+        Method method = MyAnnotaionClass.class.getMethod("fun1");
+
+        Hint hint[] = method.getAnnotationsByType(Hint.class);
+
+        for (Hint hint1 : hint) {
+
+            System.out.println(hint1.value());
+        }
+
+    }
+}
+```
+
+##### 2)类型注解
+
+```java
+public enum ElementType {
+    /** Class, interface (including annotation type), or enum declaration */
+    TYPE,
+
+    /** Field declaration (includes enum constants) */
+    FIELD,
+
+    /** Method declaration */
+    METHOD,
+
+    /** Formal parameter declaration */
+    PARAMETER,
+
+    /** Constructor declaration */
+    CONSTRUCTOR,
+
+    /** Local variable declaration */
+    LOCAL_VARIABLE,
+
+    /** Annotation type declaration */
+    ANNOTATION_TYPE,
+
+    /** Package declaration */
+    PACKAGE,
+
+    /**
+     * Type parameter declaration
+     *
+     * @since 1.8
+     */
+    TYPE_PARAMETER,
+
+    /**
+     * Use of a type
+     *
+     * @since 1.8
+     */
+    TYPE_USE
+}
+
+```
+
+#### 六.新的时间日期类
