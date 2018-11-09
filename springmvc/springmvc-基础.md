@@ -748,4 +748,243 @@ public void updateModel(NativeWebRequest request, ModelAndViewContainer containe
    }
    ```
 
+#### 16.数据校验
 
+1. 校验步骤
+
+   - 在controller方法中的参数加上@Valid注解，同时在该参数的属性上加上如下的注解
+
+     ```java
+     public class Person {
+     
+         @Length(min = 6,message = "长度不够")
+         private String username;
+         @Email(message = "不是email")
+         private String password;
+         @Min(value = 18,message = "年龄不够")
+         private Integer age;
+     
+         @Past(message = "日期在当前时间之后")
+         @DateTimeFormat(pattern = "yyyy-MM-dd")
+         private Date birthday;
+     
+         public Date getBirthday() {
+             return birthday;
+         }
+     
+         public void setBirthday(Date birthday) {
+             this.birthday = birthday;
+         }
+     
+         public String getUsername() {
+             return username;
+         }
+     
+         public void setUsername(String username) {
+             this.username = username;
+         }
+     
+         public Person() {
+     
+             System.out.println("无参构造器");
+         }
+     
+         public Person(String username, @Email String password, Integer age) {
+             this.username = username;
+             this.password = password;
+             this.age = age;
+         }
+     
+         public String getPassword() {
+             return password;
+         }
+     
+         public void setPassword(String password) {
+             this.password = password;
+         }
+     
+         public Integer getAge() {
+             return age;
+         }
+     
+         public void setAge(Integer age) {
+             this.age = age;
+         }
+     
+         public Person(Integer age) {
+             this.age = age;
+             System.out.println("age参构造器");
+         }
+     }
+     ```
+
+     在该方法中加上==BindingResult==类，在其中获取验证失败的列和对应的信息
+
+     ```java
+     public String modelAttributeTest(@Valid Person person, BindingResult result){
+     
+             if (result.hasErrors()){
+     
+                 result.getFieldErrors().stream().forEach(x->{
+     
+                     System.out.println(x.getDefaultMessage());
+                     System.out.println(x.getField());
+                 });
+     
+               		
+                  result.getAllErrors()
+                  .stream()
+                  .map(ObjectError::getDefaultMessage)
+                  .forEach(System.out::println);
+               		
+             }
+     
+             System.out.println(person);
+             return  "message";
+         }
+     ```
+
+2. 校验类型
+
+   - 空检查
+
+     - @Null      
+
+        验证对象是否为null
+
+     - @NotNull
+
+       验证对象是否不为null, 无法查检长度为0的字符串
+
+     - @NotBlank
+
+        检查约束字符串是不是Null还有被Trim的长度是否大于0,只对字符串,且会去掉前后空格.
+
+     - @NotEmpty
+
+        检查约束元素是否为NULL或者是EMPTY.
+
+   - Booelan检查
+
+     - @AssertTrue 
+
+       验证 Boolean 对象是否为 true  
+
+     - @AssertFalse
+
+         验证 Boolean 对象是否为 false
+
+   - 长度检查
+
+     - @Size(min=, max=)
+
+       验证对象（Array,Collection,Map,String）长度是否在给定的范围之内  
+
+     - @Length(min=, max=)
+
+       验证字符串长度是否在该范围内
+
+   - 日期检查
+
+     - @Past
+
+       验证 Date 和 Calendar 对象是否在当前时间之前  
+
+     - @Future    
+
+       验证 Date 和 Calendar 对象是否在当前时间之后  
+
+     - @Pattern
+
+       验证 String 对象是否符合正则表达式的规则
+
+     - @DateTimeFormat
+
+       格式化日期    
+
+   - 数值检查
+
+     建议使用在Stirng,Integer类型，不建议使用在int类型上，因为表单值为“”时无法转换为int，但可以转换为Stirng为"",Integer为null
+
+     - @Min
+
+       验证 Number 和 String 对象是否大等于指定的值  
+
+     - @Max
+
+       验证 Number 和 String 对象是否小等于指定的值  
+
+     - @DecimalMax
+
+       被标注的值必须不大于约束中指定的最大值. 这个约束的参数是一个通过BigDecimal定义的最大值的字符串表示.小数存在精度
+
+     - @DecimalMin 
+
+       被标注的值必须不小于约束中指定的最小值. 这个约束的参数是一个通过BigDecimal定义的最小值的字符串表示.小数存在精度
+
+     - @Digits
+
+       验证 Number 和 String 的构成是否合法  
+
+     - @Digits(integer=,fraction=) 
+
+       验证字符串是否是符合指定格式的数字，interger指定整数精度，fraction指定小数精度。
+
+     - @Range(min=, max=) 
+
+       检查数字是否介于min和max之间.
+
+       ```java
+       @Range(min=10000,max=50000,message="不在指定的范围内")
+       private BigDecimal wage;
+       ```
+
+     - @NumberFormat
+
+       格式化数字
+
+   - 其他常用检查
+
+     - @Valid 
+
+       递归的对关联对象进行校验, 如果关联对象是个集合或者数组,那么对其中的元素进行递归校验,如果是一个map,则对其中的值部分进行校验.(是否进行递归验证)
+
+     - @CreditCardNumber
+
+       信用卡验证
+
+     - @Email
+
+       验证是否是邮件地址，如果为null,不进行验证，算通过验证。
+
+     - @ScriptAssert(lang= ,script=, alias=)
+
+       如果需要校验的业务逻辑比较复杂，简单的@NotBlank，@Min注解已经无法满足需求了，这时可以使用@ScriptAssert来指定进行校验的方法，通过方法来进行复杂业务逻辑的校验，然后返回true或false来表明是否校验成功。例如下面的例子：
+
+       ```java
+       //通过script 属性指定进行校验的方法，传递校验的参数，
+       @ScriptAssert(lang = "javascript", 
+                    script = "com.learn.validate.domain.Student.checkParams(_this.name,_this.age,_this.classes)", 
+                   message = "验证失败")
+       public class Student {
+           private String name;
+           private int age;
+           private String classess; //注意进行校验的方法要写成静态方法，否则会出现   //TypeError: xxx is not a function 的错误
+       
+           public static boolean checkParams(String name, int age, String classes) {
+               if (name != null && age > 8 & classes != null) {
+                   return true;
+               } else {
+                   return false;
+               }
+           }
+       }
+       ```
+
+     - @URL(protocol=,host=, port=,regexp=, flags=)
+
+       url验证
+
+3. 自定义校验类型
+
+   <http://exceptioneye.iteye.com/blog/1305040>
