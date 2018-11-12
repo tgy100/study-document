@@ -255,3 +255,207 @@
          outFileChannel.close();
      }
      ```
+
+5. 分散(Scatter )与聚集(Gather)
+
+   - 分散填取Scattering Reads)
+
+     将通道中的数据分散到多个缓冲区中
+
+   - 聚集写入(Gathering Writes)
+
+     将多个缓冲区中的数据聚集到通道中
+
+   ```java
+   @Test
+   public void test06() throws Exception{
+   
+   
+       FileInputStream fileInputStream = new FileInputStream("/Users/tgy/Documents/firsttest/web/vue/vue01/vue.js");
+       FileOutputStream fileOutputStream = new FileOutputStream("/Users/tgy/Documents/firsttest/web/vue/vue01/vue01.js");
+   
+       FileChannel inputStreamChannel = fileInputStream.getChannel();
+       FileChannel outputStreamChannel = fileOutputStream.getChannel();
+   
+   
+       ByteBuffer bfs[] = {ByteBuffer.allocate(100),ByteBuffer.allocate(100)};
+       //按照数组序号以此把数据读到缓冲区中
+       inputStreamChannel.read(bfs);
+   	//改成写模式
+       Arrays.stream(bfs).forEach(ByteBuffer::flip);
+       //输出里面的数据
+       Arrays.stream(bfs).forEach(x->{
+   
+           System.out.println(new String(x.array(), 0, x.limit()));;
+       });
+   
+       //以次从缓冲区中把数据读出来
+       outputStreamChannel.write(bfs);
+   
+       fileInputStream.close();
+       fileOutputStream.close();
+   }
+   ```
+
+#### 三.字符串集(charset)
+
+1. 支持的字符集
+
+   ```java
+   Map<String,Charset> map = Charset.availableCharsets();
+    map.keySet().stream().forEach(x->{
+   
+       Charset charset = map.get(x);
+       System.out.println(x + "---->" + charset.name());
+    });
+   ```
+
+2. 编码(encode)与解码(decode)
+
+   ```java
+    Charset charset = Charset.forName("UTF-8");
+    //编码
+    ByteBuffer byteBuffer01 = charset.encode("呵呵呵");
+   //解码
+    CharBuffer charBuffer1 = charset.decode(byteBuffer01);
+   ```
+
+#### 四.非阻塞NIO
+
+​	同步非阻塞式IO，服务器实现模式为一个请求一个线程，即客户端发送的连接请求都会注册到多路复用器上，多路复用器轮询到连接有I/O请求时才启动一个线程进行处理。
+
+```java
+public class ServerSocketHandle {
+
+    private Integer port;
+    private String charsetName;
+    private int bufferSize;
+
+    private ServerSocketChannel serverSocketChannel;
+
+    private Selector selector;
+
+
+
+    public ServerSocketHandle() {
+
+        this(5010,"utf-8",1024);
+    }
+
+    public ServerSocketHandle(Integer port, String charsetName, int bufferSize) {
+        this.port = port;
+        this.charsetName = charsetName;
+        this.bufferSize = bufferSize;
+
+        init();
+    }
+
+    public Integer getPort() {
+        return port;
+    }
+
+    public void setPort(Integer port) {
+        this.port = port;
+    }
+
+    public String getCharsetName() {
+        return charsetName;
+    }
+
+    public void setCharsetName(String charsetName) {
+        this.charsetName = charsetName;
+    }
+
+    private void init(){
+
+        try {
+
+            serverSocketChannel = ServerSocketChannel.open();
+            serverSocketChannel.socket().bind(new InetSocketAddress(this.port));
+            serverSocketChannel.configureBlocking(false);
+            selector = Selector.open();
+            //把当前服务放到selector中
+            serverSocketChannel.register(selector,SelectionKey.OP_ACCEPT);
+        }catch (Exception e){
+
+            System.out.println(e);
+        }
+
+    }
+
+    private void acceptHandle(SelectionKey selectionKey) throws Exception{
+
+        //这里的ServerSocketChannel其实就是上面init方法中的serverSocketChannel
+        ServerSocketChannel ssChannel = (ServerSocketChannel) selectionKey.channel();
+        SocketChannel socketChannel = ssChannel.accept();
+        socketChannel.configureBlocking(false);
+        //注册读事件到选则器中
+        socketChannel.register(selector,SelectionKey.OP_READ,ByteBuffer.allocate(bufferSize));
+    }
+
+    private void readHandle(SelectionKey selectionKey) throws Exception{
+
+
+       SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+
+       ByteBuffer buffer = (ByteBuffer) selectionKey.attachment();
+       buffer.clear();
+
+       if (socketChannel.read(buffer) == -1){
+
+           selectionKey.cancel();
+           return;
+       }
+
+       buffer.flip();
+       CharBuffer charBuffer = Charset.forName(charsetName).decode(buffer);
+       System.out.println(new String(charBuffer.array(), 0, charBuffer.limit()));
+
+       buffer.clear();
+       buffer.put("哈哈，连接了\n".getBytes());
+       buffer.flip();
+       socketChannel.write(buffer);
+    }
+
+    public void  run() throws Exception{
+
+        while (true){
+
+            System.out.println("run......");
+            //超时时间3秒
+           if (selector.select(3000) == 0){
+
+               System.out.println("超时");
+               continue;
+           }
+
+           Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+
+           while (iterator.hasNext()){
+
+               SelectionKey selectionKey = iterator.next();
+               try {
+
+                   if (selectionKey.isAcceptable()){
+
+                       acceptHandle(selectionKey);
+                   }else if (selectionKey.isReadable()) {
+
+                       readHandle(selectionKey);
+                   }
+
+                   iterator.remove();
+               }catch (Exception e){
+
+                   iterator.remove();
+               }
+           }
+        }
+    }
+}
+```
+
+selector在不同的操作系统都选用不同的技术
+
+- 在macos中使用KQueue
+- 在低于2.6版本的linux中使用poll，高于2.6使用的是epoll

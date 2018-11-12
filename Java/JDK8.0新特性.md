@@ -910,3 +910,29 @@ public enum ElementType {
 ```
 
 #### 六.新的时间日期类
+
+```java
+ @Test
+ public void test01(){
+
+        LocalDateTime llt = LocalDateTime.now();
+
+        //减
+        LocalDateTime nllt = llt.minusHours(23);
+        System.out.println(nllt);
+
+        //加
+        LocalDateTime nllt01 = llt.plusHours(21);
+        System.out.println(nllt01);
+
+        System.out.println(Instant.now().toEpochMilli());
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
+        System.out.println(dtf.format(llt));
+
+        //        dtf.parse("2018年10月01日");
+        System.out.println(LocalDate.parse("2018年10月10日", dtf));;
+
+}
+```
+

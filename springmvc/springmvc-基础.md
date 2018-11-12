@@ -987,4 +987,50 @@ public void updateModel(NativeWebRequest request, ModelAndViewContainer containe
 
 3. 自定义校验类型
 
-   <http://exceptioneye.iteye.com/blog/1305040>
+   (1)编写annotation
+
+   ```java
+   @Target( {ElementType.METHOD, ElementType.FIELD, ElementType.ANNOTATION_TYPE })
+   @Retention(RetentionPolicy.RUNTIME)
+   @Constraint(validatedBy = UsernameValidate.class)
+   public @interface UsernameCheck {
+   
+       String message() default "用户名错误";
+       Class<?>[] groups() default {};
+   
+       Class<? extends Payload>[] payload() default {};
+   }
+   ```
+
+   (2)编写校验类(实现ConstraintValidator接口)
+
+   ```java
+   public class UsernameValidate implements ConstraintValidator<UsernameCheck,String> {
+       
+       //保存指定的annotation
+       private UsernameCheck usernameCheck;
+       @Override
+       public boolean isValid(String s, ConstraintValidatorContext constraintValidatorContext) {
+   
+           if (s.length() > 6 && s.matches("[0-9A-Za-z_]*")){
+   
+               return true;
+           }
+   
+           return false;
+       }
+   
+       @Override
+       public void initialize(UsernameCheck constraintAnnotation) {
+           //接收指定的annotation
+           usernameCheck = constraintAnnotation;
+       }
+   }
+   ```
+
+   (3)在对应的bean中使用
+
+   ```java
+   @UsernameCheck(message = "用户名太简单")
+   private String username;
+   ```
