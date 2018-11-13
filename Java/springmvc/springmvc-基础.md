@@ -1034,3 +1034,4 @@ public void updateModel(NativeWebRequest request, ModelAndViewContainer containe
    @UsernameCheck(message = "用户名太简单")
    private String username;
    ```
+
