@@ -154,8 +154,995 @@ public class ReturnValueThread implements Callable<Integer> {
 
 #### 4.定时器
 
+```java
+ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
+/**
+  * @param command the task to execute
+  * @param initialDelay the time to delay first execution
+  * @param period the period between successive executions
+  * @param unit the time unit of the initialDelay and period parameters
+*/
+ses.scheduleAtFixedRate(new Runnable() {
+    public void run() {
+
+        System.out.println("哈哈哈。。。。");
+    }
+},1,1,TimeUnit.SECONDS);
+```
+
 #### 5.线程池
+
+```java
+ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+for ( int i = 0; i < 100; i++) {
+
+    final  int j = i;
+    executorService.submit(new Runnable() {
+        @Override
+        public void run() {
+
+            System.out.println(Thread.currentThread().getName() + ",哈哈"  + j);
+        }
+    });
+}
+
+executorService.shutdown();
+```
+
+
 
 #### 6.spring
 
+1. 在配置文件中开启异步配置(@EnableAsync)
+
+   ```java
+   @Configuration
+   @Import(Person.class)
+   @EnableAsync
+   public class SpringConfig{
+       
+   }
+   ```
+
+2. 在bean的方法中加上@Async注解
+
+   ```java
+   public class Animal {
+   
+       @Async
+       public void run(){
+   
+           System.out.println(Thread.currentThread().getName());
+       }
+   }
+   ```
+
+3. 直接在spring中获取该类，进行调用
+
 #### 7.lambda表达式
+
+```java
+@Test
+public void test02(){
+
+    List<String> strings = Arrays.asList("asd","option","ssasd");
+
+    //ForkJoin技术,
+    // forEachOrdered:按照顺序遍历
+    strings.parallelStream().forEachOrdered(x->{
+
+        System.out.println(Thread.currentThread().getName() + ": " + x);
+    });
+}
+```
+
+### 三.synchronized关键字
+
+#### 1)Synchronized应用的三种方式
+
+1. 作用于实例方法
+
+   锁的是当前对象(synchronized(this))
+
+   ```java
+   public synchronized int increment(){
+   
+       try {
+           Thread.sleep(new Random().nextInt(2));
+       } catch (InterruptedException e) {
+           e.printStackTrace();
+       }
+       return index++;
+   }
+   ```
+
+2. 作用于同步代码块
+
+   锁的是synchronized括号后面的实例
+
+   ```java
+   public  int increment(){
+   
+      synchronized (this){
+   
+          try {
+              Thread.sleep(new Random().nextInt(2));
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          }
+          return index++;
+      }
+   }
+   ```
+
+3. 作用于静态方法
+
+   锁的是当前类的字节码文件，即：类.class, 
+
+   ```java
+   //synchronized(SynchronizedTest.class)
+   public static synchronized void fun(){
+           
+           indexStatic++;
+   }
+   ```
+
+#### 2)synchronized底层语义原理
+
+​	Java 虚拟机中的同步(Synchronization)基于进入和退出管程(Monitor)对象实现， 无论是显式同步(有明确的 monitorenter 和 monitorexit 指令,即同步代码块)还是隐式同步都是如此。在 Java 语言中，同步用的最多的地方可能是被 synchronized 修饰的同步方法。同步方法 并不是由 monitorenter 和 monitorexit 指令来实现同步的，而是由方法调用指令读取运行时常量池中方法的 ACC_SYNCHRONIZED 标志来隐式实现的，关于这点，稍后详细分析。下面先来了解一个概念Java对象头，这对深入理解synchronized实现原理非常关键。
+
+##### (1)理解Java对象头与Monitor
+
+在JVM中，对象在内存中的布局分为三块区域：对象头、实例数据和对齐填充。如下：
+
+![20170603163237166](image/class_memory_structure.png)
+
+- 实例变量
+
+  存放类的属性数据信息，包括父类的属性信息，如果是数组的实例部分还包括数组的长度，这部分内存按4字节对齐。
+
+- 填充数据
+
+  由于虚拟机要求对象起始地址必须是8字节的整数倍。填充数据不是必须存在的，仅仅是为了字节对齐，这点了解即可。
+
+- 而对于顶部，则是Java头对象，它实现synchronized的锁对象的基础，这点我们重点分析它，一般而言，synchronized使用的锁对象是存储在Java对象头里的，jvm中采用2个字来存储对象头(如果对象是数组则会分配3个字，多出来的1个字记录的是数组长度)，其主要结构是由Mark Word 和 Class Metadata Address 组成，其结构说明如下表：
+
+  | 虚拟机位数 | 头对象结构             | 说明                                                         |
+  | ---------- | ---------------------- | ------------------------------------------------------------ |
+  | 32/64bit   | Mark Word              | 存储对象的hashCode、锁信息或分代年龄或GC标志等信息           |
+  | 32/64bit   | Class Metadata Address | 类型指针指向对象的类元数据，JVM通过这个指针确定该对象是哪个类的实例。 |
+
+  其中Mark Word在默认情况下存储着对象的HashCode、分代年龄、锁标记位等以下是32位JVM的Mark Word默认存储结构
+
+  | 锁状态   | 25bit        | 4bit         | 1bit是否是偏向锁 | 2bit锁标志位 |
+  | -------- | ------------ | ------------ | ---------------- | ------------ |
+  | 无锁状态 | 对象HashCode | 对象分代年龄 | 0                | 01           |
+
+  由于对象头的信息是与对象自身定义的数据没有关系的额外存储成本，因此考虑到JVM的空间效率，Mark Word 被设计成为一个非固定的数据结构，以便存储更多有效的数据，它会根据对象本身的状态复用自己的存储空间，如32位JVM下，除了上述列出的Mark Word默认存储结构外，还有如下可能变化的结构：
+
+  ![20170603172215966](image/class_head_structure.png)
+
+  其中轻量级锁和偏向锁是Java 6 对 synchronized 锁进行优化后新增加的，稍后我们会简要分析。这里我们主要分析一下重量级锁也就是通常说synchronized的对象锁，锁标识位为10，其中指针指向的是monitor对象（也称为管程或监视器锁）的起始地址。每个对象都存在着一个 monitor 与之关联，对象与其 monitor 之间的关系有存在多种实现方式，如monitor可以与对象一起创建销毁或当线程试图获取对象锁时自动生成，但当一个 monitor 被某个线程持有后，它便处于锁定状态。在Java虚拟机(HotSpot)中，monitor是由ObjectMonitor实现的，其主要数据结构如下（位于HotSpot虚拟机源码ObjectMonitor.hpp文件，C++实现的）
+
+  ```c++
+  ObjectMonitor() {
+      _header       = NULL;
+      _count        = 0; //记录个数
+      _waiters      = 0,
+      _recursions   = 0;
+      _object       = NULL;
+      _owner        = NULL;
+      _WaitSet      = NULL; //处于wait状态的线程，会被加入到_WaitSet
+      _WaitSetLock  = 0 ;
+      _Responsible  = NULL ;
+      _succ         = NULL ;
+      _cxq          = NULL ;
+      FreeNext      = NULL ;
+      _EntryList    = NULL ; //处于等待锁block状态的线程，会被加入到该列表
+      _SpinFreq     = 0 ;
+      _SpinClock    = 0 ;
+      OwnerIsThread = 0 ;
+    }
+  ```
+
+  ObjectMonitor中有两个队列，\_WaitSet 和 \_EntryList，用来保存ObjectWaiter对象列表( 每个等待锁的线程都会被封装成ObjectWaiter对象)，_owner指向持有ObjectMonitor对象的线程，当多个线程同时访问一段同步代码时，首先会进入 _EntryList 集合，当线程获取到对象的monitor 后进入 _Owner 区域并把monitor中的owner变量设置为当前线程同时monitor中的计数器count加1，若线程调用 wait() 方法，将释放当前持有的monitor，owner变量恢复为null，count自减1，同时该线程进入 WaitSe t集合中等待被唤醒。若当前线程执行完毕也将释放monitor(锁)并复位变量的值，以便其他线程进入获取monitor(锁)。如下图所示
+
+  ![20170604114223462](image/monitor_run.png)
+
+  由此看来，monitor对象存在于每个Java对象的对象头中(存储的指针的指向)，synchronized锁便是通过这种方式获取锁的，也是为什么Java中任意对象可以作为锁的原因，同时也是notify/notifyAll/wait等方法存在于顶级对象Object中的原因(关于这点稍后还会进行分析)，ok~，有了上述知识基础后，下面我们将进一步分析synchronized在字节码层面的具体语义实现。
+
+##### (2)synchronized代码块底层原理
+
+现在我们重新定义一个synchronized修饰的同步代码块，在代码块中操作共享变量i，如下
+
+```java
+public class SyncCodeBlock {
+
+   public int i;
+
+   public void syncTask(){
+       //同步代码库
+       synchronized (this){
+           i++;
+       }
+   }
+}
+```
+
+编译上述代码并使用javap反编译后得到字节码如下(这里我们省略一部分没有必要的信息)：
+
+```java
+Classfile /Users/zejian/Downloads/Java8_Action/src/main/java/com/zejian/concurrencys/SyncCodeBlock.class
+  Last modified 2017-6-2; size 426 bytes
+  MD5 checksum c80bc322c87b312de760942820b4fed5
+  Compiled from "SyncCodeBlock.java"
+public class com.zejian.concurrencys.SyncCodeBlock
+  minor version: 0
+  major version: 52
+  flags: ACC_PUBLIC, ACC_SUPER
+Constant pool:
+  //........省略常量池中数据
+  //构造函数
+  public com.zejian.concurrencys.SyncCodeBlock();
+    descriptor: ()V
+    flags: ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 7: 0
+  //===========主要看看syncTask方法实现================
+  public void syncTask();
+    descriptor: ()V
+    flags: ACC_PUBLIC
+    Code:
+      stack=3, locals=3, args_size=1
+         0: aload_0
+         1: dup
+         2: astore_1
+         3: monitorenter  //注意此处，进入同步方法
+         4: aload_0
+         5: dup
+         6: getfield      #2             // Field i:I
+         9: iconst_1
+        10: iadd
+        11: putfield      #2            // Field i:I
+        14: aload_1
+        15: monitorexit   //注意此处，退出同步方法
+        16: goto          24
+        19: astore_2
+        20: aload_1
+        21: monitorexit //注意此处，退出同步方法
+        22: aload_2
+        23: athrow
+        24: return
+      Exception table:
+      //省略其他字节码.......
+}
+```
+
+我们主要关注字节码中的如下代码
+
+```assembly
+3: monitorenter  //进入同步方法
+//..........省略其他  
+15: monitorexit   //退出同步方法
+16: goto          24
+//省略其他.......
+21: monitorexit //退出同步方法
+```
+
+字节码中可知同步语句块的实现使用的是monitorenter 和 monitorexit 指令，其中monitorenter指令指向同步代码块的开始位置，monitorexit指令则指明同步代码块的结束位置，当执行monitorenter指令时，当前线程将试图获取 objectref(即对象锁) 所对应的 monitor 的持有权，当 objectref 的 monitor 的进入计数器为 0，那线程可以成功取得 monitor，并将计数器值设置为 1，取锁成功。如果当前线程已经拥有 objectref 的 monitor 的持有权，那它可以重入这个 monitor (关于重入性稍后会分析)，重入时计数器的值也会加 1。倘若其他线程已经拥有 objectref 的 monitor 的所有权，那当前线程将被阻塞，直到正在执行线程执行完毕，即monitorexit指令被执行，执行线程将释放 monitor(锁)并设置计数器值为0 ，其他线程将有机会持有 monitor 。值得注意的是编译器将会确保无论方法通过何种方式完成，方法中调用过的每条 monitorenter 指令都有执行其对应 monitorexit 指令，而无论这个方法是正常结束还是异常结束。为了保证在方法异常完成时 monitorenter 和 monitorexit 指令依然可以正确配对执行，编译器会自动产生一个异常处理器，这个异常处理器声明可处理所有的异常，它的目的就是用来执行 monitorexit 指令。从字节码中也可以看出多了一个monitorexit指令，它就是异常结束时被执行的释放monitor 的指令。
+
+1. synchronized方法底层原理
+
+   方法级的同步是隐式，即无需通过字节码指令来控制的，它实现在方法调用和返回操作之中。JVM可以从方法常量池中的方法表结构(method_info Structure) 中的 ACC_SYNCHRONIZED 访问标志区分一个方法是否同步方法。当方法调用时，调用指令将会 检查方法的 ACC_SYNCHRONIZED 访问标志是否被设置，如果设置了，执行线程将先持有monitor（虚拟机规范中用的是管程一词）， 然后再执行方法，最后再方法完成(无论是正常完成还是非正常完成)时释放monitor。在方法执行期间，执行线程持有了monitor，其他任何线程都无法再获得同一个monitor。如果一个同步方法执行期间抛 出了异常，并且在方法内部无法处理此异常，那这个同步方法所持有的monitor将在异常抛到同步方法之外时自动释放。下面我们看看字节码层面如何实现：
+
+   ```java
+   public class SyncMethod {
+   
+      public int i;
+   
+      public synchronized void syncTask(){
+              i++;
+      }
+   }
+   ```
+
+   使用javap反编译后的字节码如下：
+
+   ```java
+   Classfile /Users/zejian/Downloads/Java8_Action/src/main/java/com/zejian/concurrencys/SyncMethod.class
+     Last modified 2017-6-2; size 308 bytes
+     MD5 checksum f34075a8c059ea65e4cc2fa610e0cd94
+     Compiled from "SyncMethod.java"
+   public class com.zejian.concurrencys.SyncMethod
+     minor version: 0
+     major version: 52
+     flags: ACC_PUBLIC, ACC_SUPER
+   Constant pool;
+   
+      //省略没必要的字节码
+     //==================syncTask方法======================
+     public synchronized void syncTask();
+       descriptor: ()V
+       //方法标识ACC_PUBLIC代表public修饰，ACC_SYNCHRONIZED指明该方法为同步方法
+       flags: ACC_PUBLIC, ACC_SYNCHRONIZED
+       Code:
+         stack=3, locals=1, args_size=1
+            0: aload_0
+            1: dup
+            2: getfield      #2                  // Field i:I
+            5: iconst_1
+            6: iadd
+            7: putfield      #2                  // Field i:I
+           10: return
+         LineNumberTable:
+           line 12: 0
+           line 13: 10
+   }
+   ```
+
+   从字节码中可以看出，synchronized修饰的方法并没有monitorenter指令和monitorexit指令，取得代之的确实是ACC_SYNCHRONIZED标识，该标识指明了该方法是一个同步方法，JVM通过该ACC_SYNCHRONIZED访问标志来辨别一个方法是否声明为同步方法，从而执行相应的同步调用。这便是synchronized锁在同步代码块和同步方法上实现的基本原理。同时我们还必须注意到的是在Java早期版本中，synchronized属于重量级锁，效率低下，因为监视器锁（monitor）是依赖于底层的操作系统的Mutex Lock来实现的，而操作系统实现线程之间的切换时需要从用户态转换到核心态，这个状态之间的转换需要相对比较长的时间，时间成本相对较高，这也是为什么早期的synchronized效率低的原因。庆幸的是在Java 6之后Java官方对从JVM层面对synchronized较大优化，所以现在的synchronized锁效率也优化得很不错了，Java 6之后，为了减少获得锁和释放锁所带来的性能消耗，引入了轻量级锁和偏向锁，接下来我们将简单了解一下Java官方在JVM层面对synchronized锁的优化。
+
+2. Java虚拟机对synchronized的优化
+
+   锁的状态总共有四种，无锁状态、偏向锁、轻量级锁和重量级锁。随着锁的竞争，锁可以从偏向锁升级到轻量级锁，再升级的重量级锁，但是锁的升级是单向的，也就是说只能从低到高升级，不会出现锁的降级，关于重量级锁，前面我们已详细分析过，下面我们将介绍偏向锁和轻量级锁以及JVM的其他优化手段，这里并不打算深入到每个锁的实现和转换过程更多地是阐述Java虚拟机所提供的每个锁的核心优化思想，毕竟涉及到具体过程比较繁琐，如需了解详细过程可以查阅《深入理解Java虚拟机原理》。
+
+   - 偏向锁
+
+     偏向锁是Java 6之后加入的新锁，它是一种针对加锁操作的优化手段，经过研究发现，在大多数情况下，锁不仅不存在多线程竞争，而且总是由同一线程多次获得，因此为了减少同一线程获取锁(会涉及到一些CAS操作,耗时)的代价而引入偏向锁。偏向锁的核心思想是，如果一个线程获得了锁，那么锁就进入偏向模式，此时Mark Word 的结构也变为偏向锁结构，当这个线程再次请求锁时，无需再做任何同步操作，即获取锁的过程，这样就省去了大量有关锁申请的操作，从而也就提供程序的性能。所以，对于没有锁竞争的场合，偏向锁有很好的优化效果，毕竟极有可能连续多次是同一个线程申请相同的锁。但是对于锁竞争比较激烈的场合，偏向锁就失效了，因为这样场合极有可能每次申请锁的线程都是不相同的，因此这种场合下不应该使用偏向锁，否则会得不偿失，需要注意的是，偏向锁失败后，并不会立即膨胀为重量级锁，而是先升级为轻量级锁。下面我们接着了解轻量级锁。
+
+   - 轻量级锁
+
+     倘若偏向锁失败，虚拟机并不会立即升级为重量级锁，它还会尝试使用一种称为轻量级锁的优化手段(1.6之后加入的)，此时Mark Word 的结构也变为轻量级锁的结构。轻量级锁能够提升程序性能的依据是“对绝大部分的锁，在整个同步周期内都不存在竞争”，注意这是经验数据。需要了解的是，轻量级锁所适应的场景是线程交替执行同步块的场合，如果存在同一时间访问同一锁的场合，就会导致轻量级锁膨胀为重量级锁。
+
+   - 自旋锁
+
+     轻量级锁失败后，虚拟机为了避免线程真实地在操作系统层面挂起，还会进行一项称为自旋锁的优化手段。这是基于在大多数情况下，线程持有锁的时间都不会太长，如果直接挂起操作系统层面的线程可能会得不偿失，毕竟操作系统实现线程之间的切换时需要从用户态转换到核心态，这个状态之间的转换需要相对比较长的时间，时间成本相对较高，因此自旋锁会假设在不久将来，当前的线程可以获得锁，因此虚拟机会让当前想要获取锁的线程做几个空循环(这也是称为自旋的原因)，一般不会太久，可能是50个循环或100循环，在经过若干次循环后，如果得到锁，就顺利进入临界区。如果还不能获得锁，那就会将线程在操作系统层面挂起，这就是自旋锁的优化方式，这种方式确实也是可以提升效率的。最后没办法也就只能升级为重量级锁了。
+
+3. 锁消除
+
+   消除锁是虚拟机另外一种锁的优化，这种优化更彻底，Java虚拟机在JIT编译时(可以简单理解为当某段代码即将第一次被执行时进行编译，又称即时编译)，通过对运行上下文的扫描，去除不可能存在共享资源竞争的锁，通过这种方式消除没有必要的锁，可以节省毫无意义的请求锁时间，如下StringBuffer的append是一个同步方法，但是在add方法中的StringBuffer属于一个局部变量，并且不会被其他线程所使用，因此StringBuffer不可能存在共享资源竞争的情景，JVM会自动将其锁消除。
+
+   ```java
+   public class StringBufferRemoveSync {
+   
+       public void add(String str1, String str2) {
+           //StringBuffer是线程安全,由于sb只会在append方法中使用,不可能被其他线程引用
+           //因此sb属于不可能共享的资源,JVM会自动消除内部的锁
+           StringBuffer sb = new StringBuffer();
+           sb.append(str1).append(str2);
+       }
+   
+       public static void main(String[] args) {
+           StringBufferRemoveSync rmsync = new StringBufferRemoveSync();
+           for (int i = 0; i < 10000000; i++) {
+               rmsync.add("abc", "123");
+           }
+       }
+   
+   }
+   ```
+
+4. synchronized的可重入性
+
+   从互斥锁的设计上来说，当一个线程试图操作一个由其他线程持有的对象锁的临界资源时，将会处于阻塞状态，但当一个线程再次请求自己持有对象锁的临界资源时，这种情况属于重入锁，请求将会成功，在java中synchronized是基于原子性的内部锁机制，是可重入的，因此在一个线程调用synchronized方法的同时在其方法体内部调用该对象另一个synchronized方法，也就是说一个线程得到一个对象锁后再次请求该对象锁，是允许的，这就是synchronized的可重入性。如下：
+
+   ```java
+   public class AccountingSync implements Runnable{
+       static AccountingSync instance=new AccountingSync();
+       static int i=0;
+       static int j=0;
+       @Override
+       public void run() {
+           for(int j=0;j<1000000;j++){
+   
+               //this,当前实例对象锁
+               synchronized(this){
+                   i++;
+                   increase();//synchronized的可重入性
+               }
+           }
+       }
+   
+       public synchronized void increase(){
+           j++;
+       }
+   
+   
+       public static void main(String[] args) throws InterruptedException {
+           Thread t1=new Thread(instance);
+           Thread t2=new Thread(instance);
+           t1.start();t2.start();
+           t1.join();t2.join();
+           System.out.println(i);
+       }
+   }
+   ```
+
+   正如代码所演示的，在获取当前实例对象锁后进入synchronized代码块执行同步代码，并在代码块中调用了当前实例对象的另外一个synchronized方法，再次请求当前实例锁时，将被允许，进而执行方法体代码，这就是重入锁最直接的体现，需要特别注意另外一种情况，当子类继承父类时，子类也是可以通过可重入锁调用父类的同步方法。注意由于synchronized是基于monitor实现的，因此每次重入，monitor中的计数器仍会加1。
+
+##### (3)单例模式
+
+1. 饿汉模式
+
+   ==由于饿汉模式不存在非原子操作，所以不存在线程安全问题==
+
+   ```java
+   public class HungrySingleton {
+   
+       //饿汉式
+       private static HungrySingleton instance = new HungrySingleton();
+       private HungrySingleton() {
+       }
+   
+       public static HungrySingleton getInstance(){
+   
+           return  instance;
+       }
+   
+       public static void main(String[] args) {
+   
+   
+           ExecutorService executorService = Executors.newFixedThreadPool(10);
+   
+           for (int i = 0; i < 10; i++) {
+   
+               executorService.submit(()->{
+   
+                   System.out.println(HungrySingleton.getInstance());;
+               });
+           }
+   
+           executorService.shutdown();
+   
+       }
+   }
+   
+   ```
+
+2. 懒汉模式
+
+   ```java
+   /**
+    * 懒汉式单例模式
+    */
+   public class LazySingleton {
+   
+   
+       //加上volatile防止jvm重排序
+       private static volatile LazySingleton instance;
+       private LazySingleton() {
+   
+   
+       }
+   
+       public static LazySingleton getInstance(){
+   
+           if (instance == null){
+   
+               synchronized (LazySingleton.class){
+   
+                   if (instance == null){
+   
+                       instance = new LazySingleton();
+                   }
+               }
+           }
+   
+           return  instance;
+       }
+   }
+   ```
+
+##### (4)自定义锁
+
+1. 要求
+
+   - 使用synchronized关键字
+   - 锁是可重入的
+
+2. 代码
+
+   ```java
+   public class MyLock implements Lock {
+   
+       private boolean flag = false;
+   
+       //记录当前线程进入次数。为可重入锁做准备
+       private int threadCount = 0;
+       //记录当前线程，为可重入锁做准备
+       private Thread thread = null;
+   
+       @Override
+       public synchronized void lock() {
+   
+           
+           while (flag && thread != Thread.currentThread()){
+   
+               try {
+                   System.out.println("阻塞：" + Thread.currentThread().getName());
+                   wait();
+                   System.out.println("运行的：" + Thread.currentThread().getName());
+   
+               } catch (InterruptedException e) {
+                   e.printStackTrace();
+               }
+           }
+   
+           threadCount ++;
+           thread = Thread.currentThread();
+           flag = true;
+       }
+   
+       @Override
+       public synchronized void unlock() {
+   
+           threadCount--;
+           if (threadCount != 0){
+   
+               return;
+           }
+           thread = null;
+           flag = false;
+           notify();
+       }
+   
+       @Override
+       public void lockInterruptibly() throws InterruptedException {
+   
+       }
+   
+       @Override
+       public boolean tryLock() {
+           return false;
+       }
+   
+       @Override
+       public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+           return false;
+       }
+   
+       @Override
+       public Condition newCondition() {
+           return null;
+       }
+   
+   }
+   
+   ```
+
+
+### 四.Java内存模型(JMM)
+
+##### (1)Java内存区域
+
+![20170608140321198](image/obj_run_memory.png)
+
+​	Java虚拟机在运行程序时会把其自动管理的内存划分为以上几个区域，每个区域都有的用途以及创建销毁的时机，其中蓝色部分代表的是所有线程共享的数据区域，而绿色部分代表的是每个线程的私有数据区域。
+
+- 方法区（Method Area）
+
+  方法区属于线程共享的内存区域，又称Non-Heap（非堆），主要用于存储已被虚拟机加载的类信息、常量、静态变量、即时编译器编译后的代码等数据，根据Java 虚拟机规范的规定，当方法区无法满足内存分配需求时，将抛出OutOfMemoryError 异常。值得注意的是在方法区中存在一个叫运行时常量池(Runtime Constant Pool）的区域，它主要用于存放编译器生成的各种字面量和符号引用，这些内容将在类加载后存放到运行时常量池中，以便后续使用。
+
+- JVM堆（Java Heap）：
+
+  Java 堆也是属于线程共享的内存区域，它在虚拟机启动时创建，是Java 虚拟机所管理的内存中最大的一块，主要用于存放对象实例，几乎所有的对象实例都在这里分配内存，注意Java 堆是垃圾收集器管理的主要区域，因此很多时候也被称做GC 堆，如果在堆中没有内存完成实例分配，并且堆也无法再扩展时，将会抛出OutOfMemoryError 异常。
+
+- 程序计数器(Program Counter Register)：
+
+  属于线程私有的数据区域，是一小块内存空间，主要代表当前线程所执行的字节码行号指示器。字节码解释器工作时，通过改变这个计数器的值来选取下一条需要执行的字节码指令，分支、循环、跳转、异常处理、线程恢复等基础功能都需要依赖这个计数器来完成。
+
+- 虚拟机栈(Java Virtual Machine Stacks)：
+
+  属于线程私有的数据区域，与线程同时创建，总数与线程关联，代表Java方法执行的内存模型。每个方法执行时都会创建一个栈桢来存储方法的的变量表、操作数栈、动态链接方法、返回值、返回地址等信息。每个方法从调用直结束就对于一个栈桢在虚拟机栈中的入栈和出栈过程，如下（图有误，应该为栈桢）：
+
+  ![20170608151435751](image/method_stack.png)
+
+- 本地方法栈(Native Method Stacks)：
+
+  本地方法栈属于线程私有的数据区域，这部分主要与虚拟机用到的 Native 方法相关，一般情况下，我们无需关心此区域。
+
+这里之所以简要说明这部分内容，注意是为了区别Java内存模型与Java内存区域的划分，毕竟这两种划分是属于不同层次的概念。
+
+##### (2)Java内存模型概述
+
+​	Java内存模型(即Java Memory Model，简称JMM)本身是一种抽象的概念，并不真实存在，它描述的是一组规则或规范，通过这组规范定义了程序中各个变量（包括实例字段，静态字段和构成数组对象的元素）的访问方式。由于JVM运行程序的实体是线程，而每个线程创建时JVM都会为其创建一个工作内存(有些地方称为栈空间)，用于存储线程私有的数据，而Java内存模型中规定所有变量都存储在主内存，主内存是共享内存区域，所有线程都可以访问，但线程对变量的操作(读取赋值等)必须在工作内存中进行，首先要将变量从主内存拷贝的自己的工作内存空间，然后对变量进行操作，操作完成后再将变量写回主内存，不能直接操作主内存中的变量，工作内存中存储着主内存中的变量副本拷贝，前面说过，工作内存是每个线程的私有数据区域，因此不同的线程间无法访问对方的工作内存，线程间的通信(传值)必须通过主内存来完成，其简要访问过程如下图
+
+![20170608221857890](image/jmm_ctl.png)
+
+需要注意的是，JMM与Java内存区域的划分是不同的概念层次，更恰当说JMM描述的是一组规则，通过这组规则控制程序中各个变量在共享数据区域和私有数据区域的访问方式，JMM是围绕原子性，有序性、可见性展开的(稍后会分析)。JMM与Java内存区域唯一相似点，都存在共享数据区域和私有数据区域，在JMM中主内存属于共享数据区域，从某个程度上讲应该包括了堆和方法区，而工作内存数据线程私有数据区域，从某个程度上讲则应该包括程序计数器、虚拟机栈以及本地方法栈。或许在某些地方，我们可能会看见主内存被描述为堆内存，工作内存被称为线程栈，实际上他们表达的都是同一个含义。关于JMM中的主内存和工作内存说明如下
+
+- 主内存
+
+  主要存储的是Java实例对象，所有线程创建的实例对象都存放在主内存中，不管该实例对象是成员变量还是方法中的本地变量(也称局部变量)，当然也包括了共享的类信息、常量、静态变量。由于是共享数据区域，多条线程对同一个变量进行访问可能会发现线程安全问题。
+
+- 工作内存
+
+  主要存储当前方法的所有本地变量信息(工作内存中存储着主内存中的变量副本拷贝)，每个线程只能访问自己的工作内存，即线程中的本地变量对其它线程是不可见的，就算是两个线程执行的是同一段代码，它们也会各自在自己的工作内存中创建属于当前线程的本地变量，当然也包括了字节码行号指示器、相关Native方法的信息。注意由于工作内存是每个线程的私有数据，线程间无法相互访问工作内存，因此存储在工作内存的数据不存在线程安全问题。
+
+弄清楚主内存和工作内存后，接了解一下主内存与工作内存的数据存储类型以及操作方式，根据虚拟机规范，对于一个实例对象中的成员方法而言，如果方法中包含本地变量是基本数据类型(boolean,byte,short,char,int,long,float,double)将直接存储在工作内存的帧栈结构中，但倘若本地变量是引用类型，那么该变量的引用会存储在功能内存的帧栈中，而对象实例将存储在主内存(共享数据区域，堆)中。但对于实例对象的成员变量，不管它是基本数据类型或者包装类型(Integer、Double等)还是引用类型，都会被存储到堆区。至于static变量以及类本身相关信息将会存储在主内存中。需要注意的是，在主内存中的实例对象可以被多线程共享，倘若两个线程同时调用了同一个对象的同一个方法，那么两条线程会将要操作的数据拷贝一份到自己的工作内存中，执行完成操作后才刷新到主内存，简单示意图如下所示：
+
+![20170609093435508](image/thread_share_var.png)
+
+https://blog.csdn.net/javazejian/article/details/72772461#volatile%E5%86%85%E5%AD%98%E8%AF%AD%E4%B9%89
+
+### 五.volatile关键字
+
+volatile在并发编程中很常见，但也容易被滥用，现在我们就进一步分析volatile关键字的语义。volatile是Java虚拟机提供的轻量级的同步机制。volatile关键字有如下两个作用
+
+- 保证被volatile修饰的共享gong’x变量对所有线程总数可见的，也就是当一个线程修改了一个被volatile修饰共享变量的值，新值总数可以被其他线程立即得知。
+- 禁止指令重排序优化。
+
+##### (1)volatile的可见性
+
+​	关于volatile的可见性作用，我们必须意识到被volatile修饰的变量对所有线程总数立即可见的，对volatile变量的所有写操作总是能立刻反应到其他线程中，但是对于volatile变量运算操作在多线程环境并不保证安全性，如下
+
+```java
+public class VolatileVisibility {
+    public static volatile int i =0;
+
+    public static void increase(){
+        i++;
+    }
+}
+```
+
+​	正如上述代码所示，i变量的任何改变都会立马反应到其他线程中，但是如此存在多条线程同时调用increase()方法的话，就会出现线程安全问题，毕竟i++;操作并不具备原子性，该操作是先读取值，然后写回一个新值，相当于原来的值加上1，分两步完成，如果第二个线程在第一个线程读取旧值和写回新值期间读取i的域值，那么第二个线程就会与第一个线程一起看到同一个值，并执行相同值的加1操作，这也就造成了线程安全失败，因此对于increase方法必须使用synchronized修饰，以便保证线程安全，需要注意的是一旦使用synchronized修饰方法后，由于synchronized本身也具备与volatile相同的特性，即可见性，因此在这样种情况下就完全可以省去volatile修饰变量。
+
+```java
+public class VolatileVisibility {
+    public static int i =0;
+
+    public synchronized static void increase(){
+        i++;
+    }
+}
+```
+
+现在来看另外一种场景，可以使用volatile修饰变量达到线程安全的目的，如下
+
+```java
+public class VolatileSafe {
+
+    volatile boolean close;
+
+    public void close(){
+        close=true;
+    }
+
+    public void doWork(){
+        while (!close){
+            System.out.println("safe....");
+        }
+    }
+}
+```
+
+​	由于对于boolean变量close值的修改属于原子性操作，因此可以通过使用volatile修饰变量close，使用该变量对其他线程立即可见，从而达到线程安全的目的。那么JMM是如何实现让volatile变量对其他线程立即可见的呢？实际上，当写一个volatile变量时，JMM会把该线程对应的工作内存中的共享变量值刷新到主内存中，当读取一个volatile变量时，JMM会把该线程对应的工作内存置为无效，那么该线程将只能从主内存中重新读取共享变量。volatile变量正是通过这种写-读方式实现对其他线程可见（但其内存语义实现则是通过内存屏障，稍后会说明）。
+
+##### (2)volatile禁止重排优化
+
+​	volatile关键字另一个作用就是禁止指令重排优化，从而避免多线程环境下程序出现乱序执行的现象，关于指令重排优化前面已详细分析过，这里主要简单说明一下volatile是如何实现禁止指令重排优化的。先了解一个概念，内存屏障(Memory Barrier）。 
+
+​	内存屏障，又称内存栅栏，是一个CPU指令，它的作用有两个，一是保证特定操作的执行顺序，二是保证某些变量的内存可见性（利用该特性实现volatile的内存可见性）。由于编译器和处理器都能执行指令重排优化。如果在指令间插入一条Memory Barrier则会告诉编译器和CPU，不管什么指令都不能和这条Memory Barrier指令重排序，也就是说通过插入内存屏障禁止在内存屏障前后的指令执行重排序优化。Memory Barrier的另外一个作用是强制刷出各种CPU的缓存数据，因此任何CPU上的线程都能读取到这些数据的最新版本。总之，volatile变量正是通过内存屏障实现其在内存中的语义，即可见性和禁止重排优化。下面看一个非常典型的禁止重排优化的例子DCL，如下：
+
+```java
+public class DoubleCheckLock {
+
+    private static DoubleCheckLock instance;
+
+    private DoubleCheckLock(){}
+
+    public static DoubleCheckLock getInstance(){
+
+        //第一次检测
+        if (instance==null){
+            //同步
+            synchronized (DoubleCheckLock.class){
+                if (instance == null){
+                    //多线程环境下可能会出现问题的地方
+                    instance = new DoubleCheckLock();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+
+​	上述代码一个经典的单例的双重检测的代码，这段代码在单线程环境下并没有什么问题，但如果在多线程环境下就可以出现线程安全问题。原因在于某一个线程执行到第一次检测，读取到的instance不为null时，instance的引用对象可能没有完成初始化。因为instance = new DoubleCheckLock();可以分为以下3步完成(伪代码)
+
+```java
+memory = allocate(); //1.分配对象内存空间
+instance(memory);    //2.初始化对象
+instance = memory;   //3.设置instance指向刚分配的内存地址，此时instance！=null
+```
+
+​	由于步骤1和步骤2间可能会重排序，如下：
+
+```java
+memory = allocate(); //1.分配对象内存空间
+instance = memory;   //3.设置instance指向刚分配的内存地址，此时instance！=null，但是对象还没有初始化完成！
+instance(memory);    //2.初始化对象
+```
+
+​	由于步骤2和步骤3不存在数据依赖关系，而且无论重排前还是重排后程序的执行结果在单线程中并没有改变，因此这种重排优化是允许的。但是指令重排只会保证串行语义的执行的一致性(单线程)，但并不会关心多线程间的语义一致性。所以当一条线程访问instance不为null时，由于instance实例未必已初始化完成，也就造成了线程安全问题。那么该如何解决呢，很简单，我们使用volatile禁止instance变量被执行指令重排优化即可。
+
+```java
+ //禁止指令重排优化
+  private volatile static DoubleCheckLock instance;
+```
+
+
+
+### 六.CAS(Compare And Swap)无锁机制
+
+#### 1)CAS概念内容
+
+##### (1)无锁的概念
+
+​	在谈论无锁概念时，总会关联起乐观派与悲观派，对于乐观派而言，他们认为事情总会往好的方向发展，总是认为坏的情况发生的概率特别小，可以无所顾忌地做事，但对于悲观派而已，他们总会认为发展事态如果不及时控制，以后就无法挽回了，即使无法挽回的局面几乎不可能发生。这两种派系映射到并发编程中就如同加锁与无锁的策略，即加锁是一种悲观策略，无锁是一种乐观策略，因为对于加锁的并发程序来说，它们总是认为每次访问共享资源时总会发生冲突，因此必须对每一次数据操作实施加锁策略。而无锁则总是假设对共享资源的访问没有冲突，线程可以不停执行，无需加锁，无需等待，一旦发现冲突，无锁策略则采用一种称为CAS的技术来保证线程执行的安全性，这项CAS技术就是无锁策略实现的关键，下面我们进一步了解CAS技术的奇妙之处。
+
+##### (2)无锁的执行者-CAS
+
+1. CAS的全称是`Compare And Swap` 即比较交换，其算法核心思想如下
+
+   ```
+   执行函数：CAS(V,E,N)
+   ```
+
+   其包含3个参数
+
+   - V表示要更新的变量
+   - E表示预期值
+   - N表示新值
+
+   如果V值等于E值，则将V的值设为N。若V值和E值不同，则说明已经有其他线程做了更新，则当前线程什么都不做。通俗的理解就是CAS操作需要我们提供一个期望值，当期望值与当前线程的变量值相同时，说明还没线程修改该值，当前线程可以进行修改，也就是执行CAS操作，但如果期望值与当前线程不符，则说明该值已被其他线程修改，此时不执行更新操作，但可以选择重新读取该变量再尝试再次修改该变量，也可以放弃操作，原理图如下
+
+   ![20170701155737036](image/cas_run_ process.png)
+
+   ​	由于CAS操作属于乐观派，它总认为自己可以成功完成操作，当多个线程同时使用CAS操作一个变量时，只有一个会胜出，并成功更新，其余均会失败，但失败的线程并不会被挂起，仅是被告知失败，并且允许再次尝试，当然也允许失败的线程放弃操作，这点从图中也可以看出来。基于这样的原理，CAS操作即使没有锁，同样知道其他线程对共享资源操作影响，并执行相应的处理措施。同时从这点也可以看出，由于无锁操作中没有锁的存在，因此不可能出现死锁的情况，也就是说无锁操作天生免疫死锁。
+
+2. CPU指令对CAS的支持
+
+   ​	或许我们可能会有这样的疑问，假设存在多个线程执行CAS操作并且CAS的步骤很多，有没有可能在判断V和E相同后，正要赋值时，切换了线程，更改了值。造成了数据不一致呢？答案是否定的，因为CAS是一种系统原语，原语属于操作系统用语范畴，是由若干条指令组成的，用于完成某个功能的一个过程，并且原语的执行必须是连续的，在执行过程中不允许被中断，也就是说CAS是一条CPU的原子指令，不会造成所谓的数据不一致问题。
+
+##### (3)CAS的ABA问题及其解决方案
+
+​	假设这样一种场景，当第一个线程执行CAS(V,E,U)操作，在获取到当前变量V，准备修改为新值U前，另外两个线程已连续修改了两次变量V的值，使得该值又恢复为旧值，这样的话，我们就无法正确判断这个变量是否已被修改过，如下图
+
+![20170702223304481](image/cas_ABA_question.png)
+
+​	这就是典型的CAS的ABA问题，一般情况这种情况发现的概率比较小，可能发生了也不会造成什么问题，比如说我们对某个做加减法，不关心数字的过程，那么发生ABA问题也没啥关系。但是在某些情况下还是需要防止的，那么该如何解决呢？在Java中解决ABA问题，我们可以使用以下两个原子类
+
+1. AtomicStampedReference类
+
+   AtomicStampedReference原子类是一个带有时间戳的对象引用，在每次修改后,AtomicStampedReference不仅会设置新值而且还会记录更改的时间。当AtomicStampedReference设置对象值时，对象值以及时间戳都必须满足期望值才能写入成功，这也就解决了反复读写时，无法预知值是否已被修改的窘境
+
+   底层实现为： 
+
+   ​	通过Pair私有内部类存储数据和时间戳, 并构造volatile修饰的私有实例,接着看AtomicStampedReference类的compareAndSet（）方法的实现：同时对当前数据和当前时间进行比较，只有两者都相等是才会执行casPair()方法，单从该方法的名称就可知是一个CAS方法，最终调用的还是Unsafe类中的compareAndSwapObject方法。 到这我们就很清晰AtomicStampedReference的内部实现思想了，通过一个键值对Pair存储数据和时间戳，在更新时对数据和时间戳进行比较，只有两者都符合预期才会调用Unsafe的compareAndSwapObject方法执行数值和时间戳替换，也就避免了ABA的问题。
+
+2. AtomicMarkableReference类
+
+   AtomicMarkableReference与AtomicStampedReference不同的是，
+
+   AtomicMarkableReference维护的是一个boolean值的标识，也就是说至于true和false两种切换状态，
+
+   经过博主测试，这种方式并不能完全防止ABA问题的发生，只能减少ABA问题发生的概率。
+
+AtomicMarkableReference的实现原理与AtomicStampedReference类似，这里不再介绍。到此，我们也明白了如果要完全杜绝ABA问题的发生，我们应该使用AtomicStampedReference原子类更新对象，而对于AtomicMarkableReference来说只能减少ABA问题的发生概率，并不能杜绝。
+
+#### 2)CAS的应用
+
+##### (1)Unsafe类
+
+​	Unsafe类存在于sun.misc包中，其内部方法操作可以像C的指针一样直接操作内存，单从名称看来就可以知道该类是非安全的，毕竟Unsafe拥有着类似于C的指针操作，因此总是不应该首先使用Unsafe类，Java官方也不建议直接使用的Unsafe类，但我们还是很有必要了解该类，因为Java中CAS操作的执行依赖于Unsafe类的方法，注意Unsafe类中的所有方法都是native修饰的，也就是说Unsafe类中的方法都直接调用操作系统底层资源执行相应任务，关于Unsafe类的主要功能点如下：
+
+1. 基本操作
+
+   ```java
+   //分配内存指定大小的内存
+   public native long allocateMemory(long bytes);
+   
+   //根据给定的内存地址address设置重新分配指定大小的内存
+   public native long reallocateMemory(long address, long bytes);
+   
+   //用于释放allocateMemory和reallocateMemory申请的内存
+   public native void freeMemory(long address);
+   
+   //将指定对象的给定offset偏移量内存块中的所有字节设置为固定值
+   public native void setMemory(Object o, long offset, long bytes, byte value);//设置给定内存地址的值public native void putAddress(long address, long x);
+   
+   //获取指定内存地址的值
+   public native long getAddress(long address);
+   
+   //设置给定内存地址的long值
+   public native void putLong(long address, long x);
+   
+   //获取指定内存地址的long值
+   public native long getLong(long address);
+   
+   //设置或获取指定内存的byte值
+   //其他基本数据类型(long,char,float,double,short等)的操作与putByte及getByte相同
+   public native byte getByte(long address);
+   public native void putByte(long address, byte x);
+   
+   //操作系统的内存页大小
+   public native int pageSize();
+   
+   提供实例对象新途径：
+   //传入一个对象的class并创建该实例对象，但不会调用构造方法
+   public native Object allocateInstance(Class cls) throws InstantiationException;
+   ```
+
+2. Unsafe里的CAS 操作相关
+
+   ```java
+   //第一个参数o为给定对象，offset为对象内存的偏移量，通过这个偏移量迅速定位字段并设置或获取该字段的值，
+   //expected表示期望值，x表示要设置的值，下面3个方法都通过CAS原子指令执行操作。
+   public final native boolean compareAndSwapObject(Object o, long offset,Object expected, Object x);                                                                                                  
+    
+   public final native boolean compareAndSwapInt(Object o, long offset,int expected,int x);
+    
+   public final native boolean compareAndSwapLong(Object o, long offset,long expected,long x);
+   ```
+
+3. 挂起与恢复
+
+   ​	将一个线程进行挂起是通过park方法实现的，调用 park后，线程将一直阻塞直到超时或者中断等条件出现。unpark可以终止一个挂起的线程，使其恢复正常。Java对线程的挂起操作被封装在 `LockSupport`类中，LockSupport类中有各种版本pack方法，其底层实现最终还是使用`Unsafe.park()`方法和`Unsafe.unpark()`方法
+
+   ```java
+   //线程调用该方法，线程将一直阻塞直到超时，或者是中断条件出现。  
+   public native void park(boolean isAbsolute, long time);  
+    
+   //终止挂起的线程，恢复正常.java.util.concurrent包中挂起操作都是在LockSupport类实现的，其底层正是使用这两个方法，  
+   public native void unpark(Object thread); 
+   ```
+
+##### (2)并发包中的原子操作类(Atomic系列)
+
+​	从JDK 1.5开始提供了`java.util.concurrent.atomic`包，在该包中提供了许多基于CAS实现的原子操作类，用法方便，性能高效，主要分以下4种类型。
+
+- AtomicBoolean：原子更新布尔类型
+- AtomicInteger：原子更新整型
+- AtomicLong：原子更新长整型
+
+这3个类的实现原理和使用方式几乎是一样的，这里我们以AtomicInteger为例进行分析，AtomicInteger主要是针对int类型的数据执行原子操作，它提供了原子自增方法、原子自减方法以及原子赋值方法等，鉴于AtomicInteger的源码不多，我们直接看源码
+
+```java
+public class AtomicInteger extends Number implements java.io.Serializable {
+    private static final long serialVersionUID = 6214790243416807050L;
+ 
+    // 获取指针类Unsafe
+    private static final Unsafe unsafe = Unsafe.getUnsafe();
+ 
+    //下述变量value在AtomicInteger实例对象内的内存偏移量
+    private static final long valueOffset;
+ 
+    static {
+        try {
+           //通过unsafe类的objectFieldOffset()方法，获取value变量在对象内存中的偏移
+           //通过该偏移量valueOffset，unsafe类的内部方法可以获取到变量value对其进行取值或赋值操作
+            valueOffset = unsafe.objectFieldOffset
+                (AtomicInteger.class.getDeclaredField("value"));
+        } catch (Exception ex) { throw new Error(ex); }
+    }
+   //当前AtomicInteger封装的int变量value
+    private volatile int value;
+ 
+    public AtomicInteger(int initialValue) {
+        value = initialValue;
+    }
+    public AtomicInteger() {
+    }
+   //获取当前最新值，
+    public final int get() {
+        return value;
+    }
+    //设置当前值，具备volatile效果，方法用final修饰是为了更进一步的保证线程安全。
+    public final void set(int newValue) {
+        value = newValue;
+    }
+    //最终会设置成newValue，使用该方法后可能导致其他线程在之后的一小段时间内可以获取到旧值，有点类似于延迟加载
+    public final void lazySet(int newValue) {
+        unsafe.putOrderedInt(this, valueOffset, newValue);
+    }
+   //设置新值并获取旧值，底层调用的是CAS操作即unsafe.compareAndSwapInt()方法
+    public final int getAndSet(int newValue) {
+        return unsafe.getAndSetInt(this, valueOffset, newValue);
+    }
+   //如果当前值为expect，则设置为update(当前值指的是value变量)
+    public final boolean compareAndSet(int expect, int update) {
+        return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
+    }
+    //当前值加1返回旧值，底层CAS操作
+    public final int getAndIncrement() {
+        return unsafe.getAndAddInt(this, valueOffset, 1);
+    }
+    //当前值减1，返回旧值，底层CAS操作
+    public final int getAndDecrement() {
+        return unsafe.getAndAddInt(this, valueOffset, -1);
+    }
+   //当前值增加delta，返回旧值，底层CAS操作
+    public final int getAndAdd(int delta) {
+        return unsafe.getAndAddInt(this, valueOffset, delta);
+    }
+    //当前值加1，返回新值，底层CAS操作
+    public final int incrementAndGet() {
+        return unsafe.getAndAddInt(this, valueOffset, 1) + 1;
+    }
+    //当前值减1，返回新值，底层CAS操作
+    public final int decrementAndGet() {
+        return unsafe.getAndAddInt(this, valueOffset, -1) - 1;
+    }
+   //当前值增加delta，返回新值，底层CAS操作
+    public final int addAndGet(int delta) {
+        return unsafe.getAndAddInt(this, valueOffset, delta) + delta;
+    }
+   //省略一些不常用的方法....
+}
+```
+
+​	通过上述的分析，可以发现AtomicInteger原子类的内部几乎是基于前面分析过Unsafe类中的CAS相关操作的方法实现的，这也同时证明AtomicInteger是基于无锁实现的，这里重点分析自增操作实现过程，其他方法自增实现原理一样。
+
+​	我们发现AtomicInteger类中所有自增或自减的方法都间接调用Unsafe类中的getAndAddInt()方法实现了CAS操作，从而保证了线程安全，关于getAndAddInt其实前面已分析过，它是Unsafe类中1.8新增的方法，源码如下
+
+```java
+//Unsafe类中的getAndAddInt方法
+public final int getAndAddInt(Object o, long offset, int delta) {
+    int v;
+    do {
+        v = getIntVolatile(o, offset);
+    } while (!compareAndSwapInt(o, offset, v, v + delta));
+    return v;
+}
+```
+
+​	可看出getAndAddInt通过一个while循环不断的重试更新要设置的值，直到成功为止，调用的是Unsafe类中的compareAndSwapInt方法，是一个CAS操作方法。这里需要注意的是，上述源码分析是基于JDK1.8的，如果是1.8之前的方法，AtomicInteger源码实现有所不同，是基于for死循环的，如下
+
+```java
+//JDK 1.7的源码，由for的死循环实现，并且直接在AtomicInteger实现该方法，
+//JDK1.8后，该方法实现已移动到Unsafe类中，直接调用getAndAddInt方法即可
+public final int incrementAndGet() {
+    for (;;) {
+        int current = get();
+        int next = current + 1;
+        if (compareAndSet(current, next))
+            return next;
+    }
+}
+```
+
+##### (3)自旋锁
+
+​	自旋锁是一种假设在不久将来，当前的线程可以获得锁，因此虚拟机会让当前想要获取锁的线程做几个空循环(这也是称为自旋的原因)，在经过若干次循环后，如果得到锁，就顺利进入临界区。如果还不能获得锁，那就会将线程在操作系统层面挂起，这种方式确实也是可以提升效率的。但问题是当线程越来越多竞争很激烈时，占用CPU的时间变长会导致性能急剧下降，因此Java虚拟机内部一般对于自旋锁有一定的次数限制，可能是50或者100次循环后就放弃，直接挂起线程，让出CPU资源。
+
+如下通过AtomicReference可实现简单的自旋锁。
+
+```java
+public class SpinLock {
+  private AtomicReference<Thread> sign =new AtomicReference<>();
+ 
+  public void lock(){
+    Thread current = Thread.currentThread();
+    while(!sign .compareAndSet(null, current)){
+    }
+  }
+ 
+  public void unlock (){
+    Thread current = Thread.currentThread();
+    sign.compareAndSet(current, null);
+  }
+}
+```
+
+​	使用CAS原子操作作为底层实现，lock()方法将要更新的值设置为当前线程，并将预期值设置为null。unlock()函数将要更新的值设置为null，并预期值设置为当前线程。然后我们通过lock()和unlock来控制自旋锁的开启与关闭，注意这是一种非公平锁。事实上AtomicInteger(或者AtomicLong)原子类内部的CAS操作也是通过不断的自循环(while循环)实现，不过这种循环的结束条件是线程成功更新对于的值，但也是自旋锁的一种。
+
+##### (4)AQS(AbstractQueuedSynchronizer)
+

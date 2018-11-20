@@ -234,5 +234,233 @@ Person person01 = applicationContext.getBean(Person.class);
 #### 5.@Import注解
 
 1. 直接把要注册的bean放入到该注解中
+
+   ```java
+   //把Person加到Spring容器中
+   @Configuration
+   @Import({Person.class,MyImportSelector.class,MyImportBeanDefinitionRegistrar.class})
+   @EnableAsync
+   public class SpringConfig {
+       
+   }
+   ```
+
 2. 把实现了ImportSelector接口的类加入到注解中
+
+   ```java
+   //把实现了ImportSelect接口的MyImportSelector的selectImports返回的bean加到Spring容器中
+   @Configuration
+   @Import({MyImportSelector.class,MyImportBeanDefinitionRegistrar.class})
+   @EnableAsync
+   public class SpringConfig {
+       
+   }
+   ```
+
+   ```java
+   public class MyImportSelector implements ImportSelector {
+       @Override
+       public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+   
+   
+           return new String[]{"con.tgy.bean.Red"};
+       }
+   }
+   ```
+
 3. 把实现了ImportBeanDefinitionRegistrar接口的类加入到注解中
+
+   ```java
+   //把实现了MyImportBeanDefinitionRegistrar接口的MyImportBeanDefinitionRegistrar的registerBeanDefinitions方法里面注册要加入的bean
+   @Configuration
+   @Import({MyImportBeanDefinitionRegistrar.class})
+   @EnableAsync
+   public class SpringConfig {
+       
+   }
+   ```
+
+   ```java
+   public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar {
+       @Override
+       public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
+   
+           RootBeanDefinition rootBeanDefinition  = new RootBeanDefinition();
+           rootBeanDefinition.setBeanClass(Green.class);
+           registry.registerBeanDefinition("green",rootBeanDefinition);
+       }
+   }
+   
+   ```
+
+#### 6.FactoryBean接口
+
+​	该接口的作用是实现把bean加入到spring容器中
+
+```java
+public interface FactoryBean<T> {
+
+	/**
+	 *	返回需要加入Spring容器的实例
+	 */
+	@Nullable
+	T getObject() throws Exception;
+
+	/**
+	 *	返回需要加入Spring容器的类型
+	 */
+	@Nullable
+	Class<?> getObjectType();
+
+	/**
+	 *	创建的bean是否是单列
+	 */
+	default boolean isSingleton() {
+		return true;
+	}
+}
+
+```
+
+
+
+#### 7.bean的初始化和销毁
+
+​	bean的初始化指的是bean所有的属性都装配完成之后调用的方法。销毁指的是容器关闭(调用ApplicationContext的close方法)的时候调用的方法。
+
+##### (1)在@Bean中指定
+
+1. 使用方式
+
+   (1). 定义两个方法init,destroy，分别对应初始化与销毁
+
+   ```java
+   public class Person {
+   
+      
+       public void init(){
+   
+           //InitDestroyAnnotationBeanPostProcessor 处理的@PostConstruct注解
+           //初始化在类创建同时属性赋值好之后调用
+           System.out.println(getClass().getName() + "初始化");
+       }
+   
+       public void destroy(){
+   
+           //在spring容器停止之前调用
+           System.out.println(getClass().getName() + "容器销毁");
+       }
+   }
+   ```
+
+   (2). 在@bean中分别指定initMethod和destroyMethod
+
+   ```java
+   @Bean(initMethod = "init",destroyMethod = "destroy")
+   public Person animal(@Value("${person.name}") String name){
+   
+       System.out.println(name);
+       return new Person();
+   }
+   ```
+
+2. 源码分析
+
+   在AbstractAutowireCapableBeanFactory类的invokeInitMethods方法调用初始化方法
+
+   ```java
+   if (mbd != null && bean.getClass() != NullBean.class) {
+   String initMethodName = mbd.getInitMethodName();
+   	if (StringUtils.hasLength(initMethodName) &&
+   			!(isInitializingBean && "afterPropertiesSet".equals(initMethodName)) &&
+   			!mbd.isExternallyManagedInitMethod(initMethodName)) {
+           //执行初始化方法
+   		invokeCustomInitMethod(beanName, bean, mbd);
+       }
+   }
+   ```
+
+##### (2)使用@PostConstruct和@PreDestroy
+
+1. 使用方式
+
+   在对应的初始化方法和销毁方法上分别加上对应的注解即可
+
+   ```
+   public class Person {
+   
+       @PostConstruct
+       public void init(){
+   
+           //InitDestroyAnnotationBeanPostProcessor 处理的@PostConstruct注解
+           //初始化在类创建同时属性赋值好之后调用
+           System.out.println(getClass().getName() + "初始化");
+       }
+   
+       @PreDestroy
+       public void destroy(){
+   
+           //在spring容器停止之前调用
+           System.out.println(getClass().getName() + "容器销毁");
+       }
+   
+   }
+   
+   ```
+
+2. 源码分析
+
+   spring定义了一个proccessor来处理该注解 InitDestroyAnnotationBeanPostProcessor
+
+```java
+@Override
+public void postProcessBeforeDestruction(Object bean, String beanName) throws BeansException {
+	
+    //获取metadata
+	LifecycleMetadata metadata = findLifecycleMetadata(bean.getClass());
+    //调用init方法
+	metadata.invokeDestroyMethods(bean, beanName);
+}
+```
+
+(3)实现InitializingBean和DisposableBean接口
+
+1. 使用
+
+   InitializingBean接口对应初始化方法是：afterPropertiesSet，DisposableBean销毁方法是destroy
+
+   ```java
+   public class Green implements InitializingBean,DisposableBean {
+   
+       /**
+        * invokeInitMethods 方法的
+        *((InitializingBean) bean).afterPropertiesSet();
+        *
+        * @throws Exception
+        */
+       @Override
+       public void afterPropertiesSet() throws Exception {
+   
+   
+           System.out.println(getClass().getName() + "初始化");
+       }
+   
+       @Override
+       public void destroy() throws Exception {
+   
+           System.out.println(getClass().getName() + "销毁");
+       }
+   }
+   ```
+
+2. 源码
+
+   在AbstractAutowireCapableBeanFactory类的invokeInitMethods方法调用初始化方法
+
+   ```java
+   ((InitializingBean) bean).afterPropertiesSet();
+   ```
+
+#### 8.bean的后置处理器(BeanPostProcessor)
+
+在BeanPostProcessor接口中有两个方法，
