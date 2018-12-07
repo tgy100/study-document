@@ -423,7 +423,7 @@ public void postProcessBeforeDestruction(Object bean, String beanName) throws Be
 }
 ```
 
-(3)实现InitializingBean和DisposableBean接口
+##### (3)实现InitializingBean和DisposableBean接口
 
 1. 使用
 
@@ -464,3 +464,23 @@ public void postProcessBeforeDestruction(Object bean, String beanName) throws Be
 #### 8.bean的后置处理器(BeanPostProcessor)
 
 在BeanPostProcessor接口中有两个方法，
+
+1. 初始化方法调用之前调用
+
+   ```java
+   @Nullable
+   default Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+   	return bean;
+   }
+   ```
+
+2. 初始化方法调用之后调用
+
+   ```java
+   @Nullable
+   default Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+   	return bean;
+   }
+   ```
+
+

@@ -1,4 +1,6 @@
-### 一.线程的状态
+### 一.线程
+
+#### 1).线程的状态
 
 在Java中线程的状态一共被分成6种：
 
@@ -46,9 +48,9 @@
 
    线程执行结束后的状态。
 
-### 二.创建线程的方式
+#### 2).创建线程的方式
 
-#### 1.继承Thread类
+##### 1.继承Thread类
 
 ```java
 class MyThread extends Thread{
@@ -64,12 +66,14 @@ class MyThread extends Thread{
 }
 ```
 
+
+
 ```java
 //调用
 new MyThread().start();
 ```
 
-#### 2.Runnable接口
+##### 2.Runnable接口
 
 1. 实现Runnable接口
 
@@ -118,7 +122,7 @@ new MyThread().start();
    }).start();
    ```
 
-#### 3.有返回值和异常
+##### 3.有返回值和异常
 
 继承Callable接口，实现call方法
 
@@ -152,7 +156,7 @@ public class ReturnValueThread implements Callable<Integer> {
 }
 ```
 
-#### 4.定时器
+##### 4.定时器
 
 ```java
 ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
@@ -170,7 +174,7 @@ ses.scheduleAtFixedRate(new Runnable() {
 },1,1,TimeUnit.SECONDS);
 ```
 
-#### 5.线程池
+##### 5.线程池
 
 ```java
 ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -192,7 +196,7 @@ executorService.shutdown();
 
 
 
-#### 6.spring
+##### 6.spring
 
 1. 在配置文件中开启异步配置(@EnableAsync)
 
@@ -220,7 +224,7 @@ executorService.shutdown();
 
 3. 直接在spring中获取该类，进行调用
 
-#### 7.lambda表达式
+##### 7.lambda表达式
 
 ```java
 @Test
@@ -237,7 +241,27 @@ public void test02(){
 }
 ```
 
-### 三.synchronized关键字
+#### 3).ThreadLocal
+
+​	首先，在每个线程Thread内部有一个ThreadLocal.ThreadLocalMap类型的成员变量threadLocals，这个threadLocals就是用来存储实际的变量副本的，键值为当前ThreadLocal变量，value为变量副本（即T类型的变量）。
+
+　　初始时，在Thread里面，threadLocals为空，当通过ThreadLocal变量调用get()方法或者set()方法，就会对Thread类中的threadLocals进行初始化，并且以当前ThreadLocal变量为键值，以ThreadLocal要保存的副本变量为value，存到threadLocals。
+
+　　然后在当前线程里面，如果要使用副本变量，就可以通过get方法在threadLocals里面查找。
+
+**总结一下：**
+
+1. 实际的通过ThreadLocal创建的副本是存储在每个线程自己的threadLocals中的；
+
+2. 为何threadLocals的类型ThreadLocalMap的键值为ThreadLocal对象，因为每个线程中可有多个threadLocal变量，就像上面代码中的longLocal和stringLocal；
+
+3. 在进行get之前，必须先set，否则会报空指针异常；
+
+   如果想在get之前不需要调用set就能正常访问的话，必须重写initialValue()方法。
+
+   因为在上面的代码分析过程中，我们发现如果没有先set的话，即在map中查找不到对应的存储，则会通过调用setInitialValue方法返回i，而在setInitialValue方法中，有一个语句是T value = initialValue()， 而默认情况下，initialValue方法返回的是null。
+
+### 二.synchronized关键字
 
 #### 1)Synchronized应用的三种方式
 
@@ -717,7 +741,7 @@ Constant pool:
    ```
 
 
-### 四.Java内存模型(JMM)
+### 三.Java内存模型(JMM)
 
 ##### (1)Java内存区域
 
@@ -771,7 +795,7 @@ Constant pool:
 
 https://blog.csdn.net/javazejian/article/details/72772461#volatile%E5%86%85%E5%AD%98%E8%AF%AD%E4%B9%89
 
-### 五.volatile关键字
+### 四.volatile关键字
 
 volatile在并发编程中很常见，但也容易被滥用，现在我们就进一步分析volatile关键字的语义。volatile是Java虚拟机提供的轻量级的同步机制。volatile关键字有如下两个作用
 
@@ -880,7 +904,7 @@ instance(memory);    //2.初始化对象
 
 
 
-### 六.CAS(Compare And Swap)无锁机制
+### 五.CAS(Compare And Swap)无锁机制
 
 #### 1)CAS概念内容
 
@@ -1131,7 +1155,7 @@ public class SpinLock {
  
   public void lock(){
     Thread current = Thread.currentThread();
-    while(!sign .compareAndSet(null, current)){
+    while(!sign.compareAndSet(null, current)){
     }
   }
  
@@ -1145,3 +1169,732 @@ public class SpinLock {
 ​	使用CAS原子操作作为底层实现，lock()方法将要更新的值设置为当前线程，并将预期值设置为null。unlock()函数将要更新的值设置为null，并预期值设置为当前线程。然后我们通过lock()和unlock来控制自旋锁的开启与关闭，注意这是一种非公平锁。事实上AtomicInteger(或者AtomicLong)原子类内部的CAS操作也是通过不断的自循环(while循环)实现，不过这种循环的结束条件是线程成功更新对于的值，但也是自旋锁的一种。
 
 ##### (4)AQS(AbstractQueuedSynchronizer)
+
+AQS通过CAS + Queue来实现锁的机制
+
+AQS应用:
+
+######  1.ReentrantLock
+
+ 通过实现Lock接口，完成类似synchronized锁机制.
+
+```java
+public class ReentrantLockTest {
+
+    private int index = 0;
+    private Lock lock = new ReentrantLock(true);
+
+    public int increment(){
+
+
+        //线程进来了，发现是0，则继续执行
+        //如果发现不是0，则保存进程信息，同时中断线程，等待唤醒
+        lock.lock();
+        //...
+        int tmp = index++;
+        decrement();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }finally {
+
+            //改成0，同时通知其他等待线程启动
+            lock.unlock();
+        }
+
+        return tmp;
+    }
+
+    public int decrement(){
+        
+        try {
+            lock.lock();
+            int tmp = index--;
+            return tmp;
+            
+        }finally {
+            
+            lock.unlock();
+        }
+        
+    }
+
+    public static void main(String[] args) {
+
+        ReentrantLockTest rt = new ReentrantLockTest();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+        for (int i = 0; i < 10; i++) {
+
+            executorService.submit(()->{
+
+                System.out.println(rt.increment());
+            });
+        }
+
+
+
+    }
+}
+```
+
+###### 2.ReentrantReadWriteLock
+
+　读写锁是一种特殊的自旋锁，它把对共享资源对访问者划分成了读者和写者，读者只对共享资源进行访问，写者则是对共享资源进行写操作。读写锁在ReentrantLock上进行了拓展使得该锁更适合读操作远远大于写操作对场景。一个读写锁同时只能存在一个写锁但是可以存在多个读锁，但不能同时存在写锁和读锁。
+
+　如果读写锁当前没有读者，也没有写者，那么写者可以立刻获的读写锁，否则必须自旋，直到没有任何的写锁或者读锁存在。如果读写锁没有写锁，那么读锁可以立马获取，否则必须等待写锁释放。(但是有一个例外，就是读写锁中的锁降级操作，当同一个线程获取写锁后，在写锁没有释放的情况下可以获取读锁再释放读锁这就是锁降级的一个过程)
+
+```
+package cn.memedai;
+
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReadWriteLock;
+
+/**
+ * 读写锁Demo
+ */
+public class ReentrantReadWriteLockDemo {
+
+    class MyObject {
+        private Object object;
+
+        private ReadWriteLock lock = new java.util.concurrent.locks.ReentrantReadWriteLock();
+
+        public void get() throws InterruptedException {
+            lock.readLock().lock();//上读锁
+            try {
+                System.out.println(Thread.currentThread().getName() + "准备读取数据");
+                Thread.sleep(new Random().nextInt(1000));
+                System.out.println(Thread.currentThread().getName() + "读数据为：" + this.object);
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        public void put(Object object) throws InterruptedException {
+            lock.writeLock().lock();
+            try {
+                System.out.println(Thread.currentThread().getName() + "准备写数据");
+                Thread.sleep(new Random().nextInt(1000));
+                this.object = object;
+                System.out.println(Thread.currentThread().getName() + "写数据为" + this.object);
+            } finally {
+                lock.writeLock().unlock();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        final MyObject myObject = new ReentrantReadWriteLockDemo().new MyObject();
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for (int i = 0; i < 3; i++) {
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    for (int j = 0; j < 3; j++) {
+
+                        try {
+                            myObject.put(new Random().nextInt(1000));//写操作
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+        }
+
+        for (int i = 0; i < 3; i++) {
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    for (int j = 0; j < 3; j++) {
+                        try {
+                            myObject.get();//多个线程读取操作
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+        }
+
+        executorService.shutdown();
+    }
+}
+```
+
+**锁降级**
+
+锁降级指的是写锁降级成为读锁。锁降级是指把持住当前拥有的写锁的同时，再获取到读锁，随后释放写锁的过程。
+
+```java
+class CachedData {
+   Object data;
+   volatile boolean cacheValid;
+   final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+
+   void processCachedData() {
+     rwl.readLock().lock();
+     if (!cacheValid) {
+        // Must release read lock before acquiring write lock
+        rwl.readLock().unlock();
+        rwl.writeLock().lock();
+        try {
+          // Recheck state because another thread might have
+          // acquired write lock and changed state before we did.
+          if (!cacheValid) {
+            data = ...
+            cacheValid = true;
+          }
+          // Downgrade by acquiring read lock before releasing write lock
+          rwl.readLock().lock();
+        } finally {
+          rwl.writeLock().unlock(); // Unlock write, still hold read
+        }
+     }
+
+     try {
+       use(data);
+     } finally {
+       rwl.readLock().unlock();
+     }
+   }
+ }
+```
+
+代码中声明了一个volatile类型的cacheValid变量，保证其可见性。首先获取读锁，如果cache不可用，则释放读锁，获取写锁，在更改数据之前，再检查一次cacheValid的值，然后修改数据，将cacheValid置为true，然后在**释放写锁前获取读锁**；此时，cache中数据可用，处理cache中数据，最后释放读锁。这个过程就是一个完整的锁降级的过程，目的是保证数据可见性，如果当前的线程*C*在修改完cache中的数据后，没有获取读锁而是直接释放了写锁，那么假设此时另一个线程*T*获取了写锁并修改了数据，那么*C*线程无法感知到数据已被修改，则数据出现错误。如果遵循锁降级的步骤，线程*C*在释放写锁之前获取读锁，那么线程*T*在获取写锁时将被阻塞，直到线程*C*完成数据处理过程，释放读锁。
+
+###### 3.Condition
+
+condition与Object类中的wait，notify/notifyAll功能类似。里面有await方法和signal/signalAll方法
+
+| 对比项                                                     | Object Monitor Methods     | Condition                                                    |
+| ---------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
+| 前置条件                                                   | 在使用之前获取对象的锁     | 调用Lock.lock获取锁；<br>调用Lock.newCondition获取Condition对象； |
+| 调用方式                                                   | 直接调用，如:object.wait() | 直接调用，如condition.await()                                |
+| 等待队列个数                                               | 一个                       | 多个                                                         |
+| 当前线程释放锁并进入等待状态                               | 支持                       | 支持                                                         |
+| 当前线程释放锁并进入等待状态，在等待状态不响应中断         | 不支持                     | 支持                                                         |
+| 当前线程释放锁并进入超时等待状态                           | 支持                       | 支持                                                         |
+| 当前线程释放锁并进入超时等待状态，在超时等待状态不响应中断 | 不支持                     | 支持                                                         |
+| 唤醒等待队列中的一个线程                                   | 支持                       | 支持                                                         |
+| 唤醒等待队列中的全部线程                                   | 支持                       | 支持                                                         |
+
+```java
+class Resource01{
+
+    private Integer count = 0;
+
+    public Integer getCount() {
+        return count;
+    }
+
+    public void setCount(Integer count) {
+        this.count = count;
+    }
+}
+
+public class SynchronizationRunTest01 {
+
+    private Lock lock = new ReentrantLock();
+
+    private Condition condition01 = lock.newCondition();
+    private Condition condition02 = lock.newCondition();
+    private Condition condition03 = lock.newCondition();
+
+
+    @Test
+    public void test() throws InterruptedException {
+
+        Resource01 resource01 = new Resource01();
+
+
+
+            new Thread(new Runnable() {
+
+                @Override
+                public void run() {
+                    while (true){
+
+                        lock.lock();
+
+                        while (resource01.getCount() != 0){
+
+                            try {
+                                condition01.await();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        System.out.println("A");
+                        resource01.setCount(1);
+                        condition02.signalAll();
+                        lock.unlock();
+                    }
+                }
+            }).start();
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                while (true){
+
+                    lock.lock();
+
+                    while (resource01.getCount() != 1){
+
+                        try {
+                            condition02.await();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    System.out.println("B");
+                    resource01.setCount(2);
+                    condition03.signalAll();
+                    System.out.println("condition03 唤醒");
+                    lock.unlock();
+                    System.out.println("condition03 唤醒1111");
+
+                }
+            }
+        }).start();
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                while (true){
+
+                    lock.lock();
+
+                    while (resource01.getCount() != 2){
+
+                        try {
+                            condition03.await();
+                            System.out.println("condition03 执行。。。");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                    }
+
+//                    notifyAll();
+                    System.out.println("C");
+                    resource01.setCount(0);
+                    condition01.signalAll();
+                    lock.unlock();
+
+
+                }
+            }
+        }).start();
+        Thread.sleep(10000);
+    }
+
+}
+```
+
+注意事项**
+
+1. condition必须在lock和unlock之间使用。
+2. condition中signalAll/signal唤醒其他等待线程是在unlock之后唤醒。
+
+###### 4.CountDownLatch
+
+​	CountDownLatch是一个同步工具类，它允许一个或多个线程一直等待，直到其他线程执行完后再执行。例如，应用程序的主线程希望在负责启动框架服务的线程已经启动所有框架服务之后执行。
+
+**在实时系统中的使用场景**
+
+1. 实现最大的并行性：有时我们想同时启动多个线程，实现最大程度的并行性。例如，我们想测试一个单例类。如果我们创建一个初始计数器为1的CountDownLatch，并让其他所有线程都在这个锁上等待，只需要调用一次countDown()方法就可以让其他所有等待的线程同时恢复执行。
+2. 开始执行前等待N个线程完成各自任务：例如应用程序启动类要确保在处理用户请求前，所有N个外部系统都已经启动和运行了。
+3. 死锁检测：一个非常方便的使用场景是你用N个线程去访问共享资源，在每个测试阶段线程数量不同，并尝试产生死锁。
+
+```java
+/**
+ *子线程等所有其他子线程创建完成后，一起执行，
+ *主线程等待子线程执行完在结束
+ */
+public class CountDownTest {
+
+    @Test
+    public void test() throws InterruptedException {
+
+        int n = 10;
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        CountDownLatch downLatch = new CountDownLatch(n);
+
+        for (int i = 0; i < n; i++) {
+
+            new Thread(()->{
+
+                try {
+					//子线程等待
+                    System.out.println(Thread.currentThread().getName() + "开始等待");
+                    countDownLatch.await();
+                    System.out.println(Thread.currentThread().getName() + "开始执行");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }finally {
+
+                    downLatch.countDown();
+
+                }
+
+            }).start();
+
+        }
+
+        countDownLatch.countDown();
+        System.out.println(Thread.currentThread().getName() + "开始等待");
+        //主线程等待
+        downLatch.await();
+
+    }
+}
+```
+
+###### 5.CyclicBarrier
+
+​	CyclicBarrier 的字面意思是可循环使用(Cyclic)的屏障(Barrier)。它要做的事情是，让一组线程到达一个屏障(也可以叫同步点)时被阻塞，直到最后一个线程到达屏障时，屏障才会开门，所有被屏障拦截的线程才会继续干活。CyclicBarrier默认的构造方法是CyclicBarrier(int parties)，其参数表示屏障拦截的线程数量，每个线程调用await方法告诉CyclicBarrier我已经到达了屏障，然后当前线程被阻塞。
+
+```java
+class Player implements Runnable {
+  private CyclicBarrier cyclicBarrier;
+  private int id;
+
+  public Player(int id, CyclicBarrier cyclicBarrier) {
+    this.cyclicBarrier = cyclicBarrier;
+    this.id = id;
+  }
+
+  @Override
+  public void run() {
+    try {
+      System.out.println("玩家" + id + "正在玩第一关...");
+      cyclicBarrier.await();
+      System.out.println("玩家" + id + "进入第二关...");
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (BrokenBarrierException e) {
+      e.printStackTrace();
+    }
+  }
+}
+
+
+public class CyclicBarrierTest {
+  public static void main(String[] args) {
+    // CyclicBarrier cyclicBarrier = new CyclicBarrier(4);
+    CyclicBarrier cyclicBarrier = new CyclicBarrier(4,
+        new Runnable() {
+          @Override
+          public void run() {
+            System.out.println("所有玩家进入第二关！");
+          }
+        });
+
+    for (int i = 0; i < 4; i++) {
+      new Thread(new Player(i, cyclicBarrier)).start();
+    }
+  }
+}
+```
+
+**CyclicBarrier和CountDownLatch的区别**
+
+- CountDownLatch: 一个线程(或者多个)， 等待另外N个线程完成某个事情之后才能执行。
+- CyclicBarrier: N个线程相互等待，任何一个线程完成之前，所有的线程都必须等待。
+- CountDownLatch的计数器只能使用一次。而CyclicBarrier的计数器可以使用reset() 方法重置。所以CyclicBarrier能处理更为复杂的业务场景，比如如果计算发生错误，可以重置计数器，并让线程们重新执行一次。
+- CountDownLatch：减计数方式，CyclicBarrier：加计数方式
+
+###### 6.Semaphore
+
+​	Semaphore是一种基于计数的信号量。它可以设定一个阈值，基于此，多个线程竞争获取许可信号，做完自己的申请后归还，超过阈值后，线程申请许可信号将会被阻塞。Semaphore可以用来构建一些对象池，资源池之类的，比如数据库连接池，我们也可以创建计数为1的Semaphore，将其作为一种类似互斥锁的机制，这也叫二元信号量，表示两种互斥状态。
+
+```java
+class SemTask implements Runnable{
+
+    private int num;
+    private Semaphore semaphore;
+
+    public SemTask(int num, Semaphore semaphore) {
+        this.num = num;
+        this.semaphore = semaphore;
+    }
+
+    @Override
+    public void run() {
+
+        try {
+            semaphore.acquire();
+            System.out.println(Thread.currentThread().getName() + "执行" + num);
+            Thread.sleep(1000);
+            System.out.println(Thread.currentThread().getName() + "释放" + num);
+            semaphore.release();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+    }
+}
+
+public class SemaphoreTest01 {
+
+    @Test
+    public void test() throws InterruptedException {
+
+        int num = 5;
+        Semaphore semaphore = new Semaphore(num);
+
+        for (int i = 0; i < 10; i++) {
+
+            new Thread(new SemTask(i,semaphore)).start();
+        }
+
+        Thread.sleep(100000);
+    }
+}
+```
+
+### 六.同步容器和并发容器
+
+#### 1)同步容器
+
+在Java中，同步容器主要包括2类：
+
+##### (1).Vector、Stack、HashTable
+
+1. Vector实现了List接口，Vector实际上就是一个数组，和ArrayList类似，但是Vector中的方法都是synchronized方法，即进行了同步措施。
+2. Stack也是一个同步容器，它的方法也用synchronized进行了同步，它实际上是继承于Vector类。
+3. HashTable实现了Map接口，它和HashMap很相似，但是HashTable使用synchronized进行了同步处理，而HashMap没有。
+
+##### (2).Collections类中提供的静态工厂方法创建的类
+
+​	Collections类是一个工具提供类，注意，它和Collection不同，Collection是一个顶层的接口。在Collections类中提供了大量的方法，比如对集合或者容器进行排序、查找等操作。最重要的是，在它里面提供了几个静态工厂方法来创建同步容器类
+
+```java
+ //把线程不安全的容器变成线程安全的
+Collection<String> strings = Collections.synchronizedCollection(new ArrayList<String>());
+List list = Collections.synchronizedList(new ArrayList<>());
+Map synMap = Collections.synchronizedMap(map);
+Set synSet = Collections.synchronizedSortedSet(new TreeSet<>());
+```
+
+​	从同步容器的具体实现源码可知，同步容器中的方法采用了synchronized进行了同步，那么很显然，这必然会影响到执行性能，另外，同步容器就一定是真正地完全线程安全吗？不一定，这个在下面会讲到。
+
+##### (3)同步容器真的是安全的吗
+
+```java
+public class Test {
+    static Vector<Integer> vector = new Vector<Integer>();
+    public static void main(String[] args) throws InterruptedException {
+        while(true) {
+            for(int i=0;i<10;i++)
+                vector.add(i);
+            Thread thread1 = new Thread(){
+                public void run() {
+                    for(int i=0;i<vector.size();i++)
+                        vector.remove(i);
+                };
+            };
+            Thread thread2 = new Thread(){
+                public void run() {
+                    for(int i=0;i<vector.size();i++)
+                        vector.get(i);
+                };
+            };
+            thread1.start();
+            thread2.start();
+            while(Thread.activeCount()>10)   {
+                 
+            }
+        }
+    }
+}
+```
+
+上面可能通过get获取到的是已经删除的对象，要解决这个问题，必须在外面再加上一个锁。
+
+```java
+@Test
+public void vectorTest(){
+
+    Lock lock = new ReentrantLock();
+    Vector<Integer> vector = new Vector<>();
+    while(true) {
+        for(int i=0;i<10;i++)
+            vector.add(i);
+        Thread thread1 = new Thread(){
+            public void run() {
+
+                try {
+                    lock.lock();
+                    for(int i=0;i<vector.size();i++){
+
+                        Integer tmp = vector.remove(i);
+                        System.out.println("删除" + tmp);
+                    }
+
+                }finally {
+
+                    lock.unlock();
+                }
+
+            };
+        };
+        Thread thread2 = new Thread(){
+            public void run() {
+
+                try {
+                    lock.lock();
+                    for(int i=0;i<vector.size();i++){
+
+                        Integer tmp = vector.get(i);
+                        System.out.println("取到" + tmp);
+                    }
+
+                }finally {
+
+                    lock.unlock();
+                }
+
+            };
+        };
+        thread1.start();
+        thread2.start();
+        while(Thread.activeCount()>10)   {
+
+        }
+    }
+}
+```
+
+#### 2).并发容器
+
+​	JDK5中添加了新的concurrent包，相对同步容器而言，并发容器通过一些机制改进了并发性能。因为同步容器将所有对容器状态的访问都串行化了，这样保证了线程的安全性，所以这种方法的代价就是严重降低了并发性，当多个线程竞争容器时，吞吐量严重降低。因此Java5.0开始针对多线程并发访问设计，提供了并发性能较好的并发容器，引入了java.util.concurrent包。与Vector和Hashtable、Collections.synchronizedXxx()同步容器等相比，util.concurrent中引入的并发容器主要解决了两个问题：
+
+1. 根据具体场景进行设计，尽量避免synchronized，提供并发性。 
+2. 定义了一些并发安全的复合操作，并且保证并发环境下的迭代操作不会出错。
+
+==util.concurrent中容器在迭代时，可以不封装在synchronized中，可以保证不抛异常，但是未必每次看到的都是"最新的、当前的"数据。==
+
+- ConcurrentHashMap代替同步的Map（Collections.synchronized（new HashMap()）），众所周知，HashMap是根据散列值分段存储的，同步Map在同步的时候锁住了所有的段，而ConcurrentHashMap加锁的时候根据散列值锁住了散列值锁对应的那段，因此提高了并发性能。
+
+- ConcurrentHashMap也增加了对常用复合操作的支持，比如"若没有则添加"：putIfAbsent()，替换：replace()。这2个操作都是原子操作。
+
+- CopyOnWriteArrayList和CopyOnWriteArraySet分别代替List和Set，主要是在遍历操作为主的情况下来代替同步的List和同步的Set，这也就是上面所述的思路：迭代过程要保证不出错，除了加锁，另外一种方法就是"克隆"容器对象。
+- ConcurrentLinkedQuerue是一个先进先出的队列。它是非阻塞队列。
+- ConcurrentSkipListMap可以在高效并发中替代SoredMap（例如用Collections.synchronzedMap包装的TreeMap）。
+- ConcurrentSkipListSet可以在高效并发中替代SoredSet（例如用Collections.synchronzedSet包装的TreeMap)。
+
+##### (1).ConcurrentHashMap
+
+ 	HashMap是非线程安全的，Hashtable是线程安全的，但是由于Hashtable是采用synchronized进行同步，相当于所有线程进行读写时都去竞争一把锁，导致效率非常低下。
+
+​	ConcurrentHashMap可以做到读取数据不加锁，并且其内部的结构可以让其在进行写操作的时候能够将锁的粒度保持地尽量地小，不用对整个ConcurrentHashMap加锁。ConcurrentHashMap为了提高本身的并发能力，在内部采用了一个叫做Segment的结构，一个Segment其实就是一个类Hash Table的结构，Segment内部维护了一个链表数组，我们用下面这一幅图来看下ConcurrentHashMap的内部结构：
+
+![20161122211248694](../../iOS/面试题/image/concurrentHashMap_ logic.png)
+
+​	从上面的结构我们可以了解到，ConcurrentHashMap定位一个元素的过程需要进行两次Hash操作，第一次Hash定位到Segment，第二次Hash定位到元素所在的链表的头部，因此，这一种结构的带来的副作用是Hash的过程要比普通的HashMap要长，但是带来的好处是写操作的时候可以只对元素所在的Segment进行加锁即可，不会影响到其他的Segment，这样，在最理想的情况下，ConcurrentHashMap可以最高同时支持Segment数量大小的写操作（刚好这些写操作都非常平均地分布在所有的Segment上），所以，通过这一种结构，ConcurrentHashMap的并发能力可以大大的提高。
+
+**Segment的数据结构**:
+
+```java
+static final class Segment<K,V> extends ReentrantLock implements Serializable {
+    transient volatile int count;
+    transient int modCount;
+    transient int threshold;
+    transient volatile HashEntry<K,V>[] table;
+    final float loadFactor;
+}
+```
+
+详细解释一下Segment里面的成员变量的意义：
+
+- count：Segment中元素的数量
+- modCount：对table的大小造成影响的操作的数量（比如put或者remove操作）
+- threshold：阈值，Segment里面元素的数量超过这个值依旧就会对Segment进行扩容
+- table：链表数组，数组中的每一个元素代表了一个链表的头部
+- loadFactor：负载因子，用于确定threshold
+
+Segment中的元素是以HashEntry的形式存放在链表数组中的，看一下HashEntry的结构：
+
+```java
+static final class HashEntry<K,V> {
+    final K key;
+    final int hash;
+    volatile V value;
+    final HashEntry<K,V> next;
+}
+```
+
+​	可以看到HashEntry的一个特点，除了value以外，其他的几个变量都是final的，这样做是为了防止链表结构被破坏，出现ConcurrentModification的情况。
+
+下面我们来结合源代码来具体分析一下ConcurrentHashMap的实现，先看下初始化方法：
+
+```java
+public ConcurrentHashMap(int initialCapacity,
+                         float loadFactor, int concurrencyLevel) {
+    if (!(loadFactor > 0) || initialCapacity < 0 || concurrencyLevel <= 0)
+        throw new IllegalArgumentException();
+  
+    if (concurrencyLevel > MAX_SEGMENTS)
+        concurrencyLevel = MAX_SEGMENTS;
+  
+    // Find power-of-two sizes best matching arguments
+    int sshift = 0;
+    int ssize = 1;
+    while (ssize < concurrencyLevel) {
+        ++sshift;
+        ssize <<= 1;
+    }
+    segmentShift = 32 - sshift;
+    segmentMask = ssize - 1;
+    this.segments = Segment.newArray(ssize);
+  
+    if (initialCapacity > MAXIMUM_CAPACITY)
+        initialCapacity = MAXIMUM_CAPACITY;
+    int c = initialCapacity / ssize;
+    if (c * ssize < initialCapacity)
+        ++c;
+    int cap = 1;
+    while (cap < c)
+        cap <<= 1;
+  
+    for (int i = 0; i < this.segments.length; ++i)
+        this.segments[i] = new Segment<K,V>(cap, loadFactor);
+}
+
+```
+
+以上是jdk7.0的实现。jdk8.0对ConcurrentHashMap重新写了，使用了CAS + Synchronized 对线程同步作处理，其中Synchronized的个数的最大值也不是16个，可以自己定义。
+
+```java
+private final Node<K,V>[] initTable() {
+    Node<K,V>[] tab; int sc;
+    while ((tab = table) == null || tab.length == 0) {
+        if ((sc = sizeCtl) < 0)
+            Thread.yield(); // lost initialization race; just spin
+        else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
+            try {
+                if ((tab = table) == null || tab.length == 0) {
+                    int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                    @SuppressWarnings("unchecked")
+                    Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                    table = tab = nt;
+                    sc = n - (n >>> 2);
+                }
+            } finally {
+                sizeCtl = sc;
+            }
+            break;
+        }
+    }
+    return tab;
+}
+```
+
