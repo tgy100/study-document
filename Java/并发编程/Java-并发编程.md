@@ -261,6 +261,122 @@ public void test02(){
 
    因为在上面的代码分析过程中，我们发现如果没有先set的话，即在map中查找不到对应的存储，则会通过调用setInitialValue方法返回i，而在setInitialValue方法中，有一个语句是T value = initialValue()， 而默认情况下，initialValue方法返回的是null。
 
+#### 4)线程池ThreadPoolExecutor
+
+##### (1)线程池的优点
+
+1. 线程是稀缺资源，使用线程池可以减少创建和销毁线程的次数，每个工作线程都可以重复使用。
+
+2. 可以根据系统的承受能力，调整线程池中工作线程的数量，防止因为消耗过多内存导致服务器崩溃。
+
+##### (2)线程池的创建
+
+```java
+public ThreadPoolExecutor(int corePoolSize,
+                               int maximumPoolSize,
+                               long keepAliveTime,
+                               TimeUnit unit,
+                               BlockingQueue<Runnable> workQueue,
+                               RejectedExecutionHandler handler) 
+```
+
+- corePoolSize：线程池核心线程数量
+
+- maximumPoolSize:线程池最大线程数量
+
+- keepAliverTime：当活跃线程数大于核心线程数时，空闲的多余线程最大存活时间
+
+- unit：存活时间的单位
+
+- workQueue：存放任务的队列
+
+- handler：超出线程范围和队列容量的任务的处理程序
+
+##### (3)线程池的实现原理
+
+提交一个任务到线程池中，线程池的处理流程如下：
+
+1. 判断**线程池里的核心线程**是否都在执行任务，如果不是（核心线程空闲或者还有核心线程没有被创建）则创建一个新的工作线程来执行任务。如果核心线程都在执行任务，则进入下个流程。
+
+2. 线程池判断工作队列是否已满，如果工作队列没有满，则将新提交的任务存储在这个工作队列里。如果工作队列满了，则进入下个流程。
+
+3. 判断**线程池里的线程**是否都处于工作状态，如果没有，则创建一个新的工作线程来执行任务。如果已经满了，则交给饱和策略来处理这个任务。
+
+```java
+@Test
+public void test01(){
+
+
+    ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(5);
+    ThreadPoolExecutor poolExecutor = new ThreadPoolExecutor(5, 10, 60,
+            TimeUnit.SECONDS, queue);
+
+    for (int i = 0; i < 16; i++) {
+
+        poolExecutor.execute(()->{
+
+            try {
+                System.out.println(Thread.currentThread().getName());
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+
+        System.out.println("线程数:" + poolExecutor.getPoolSize());
+        if (queue.size() > 0){
+
+            System.out.println("阻塞队列长度:" + queue.size());
+        }
+    }
+
+    poolExecutor.shutdown();
+
+}
+```
+
+从结果可以观察出：
+
+1、创建的线程池具体配置为：核心线程数量为5个；全部线程数量为10个；工作队列的长度为5。
+
+2、我们通过queue.size()的方法来获取工作队列中的任务数。
+
+3、运行原理：
+
+​      **刚开始都是在创建新的线程，达到核心线程数量5个后，新的任务进来后不再创建新的线程，而是将任务加入工作队列，任务队列到达上线5个后，新的任务又会创建新的普通线程，直到达到线程池最大的线程数量10个，后面的任务则根据配置的饱和策略来处理。我们这里没有具体配置，使用的是默认的配置AbortPolicy:直接抛出异常。**
+
+　　**当然，为了达到我需要的效果，上述线程处理的任务都是利用休眠导致线程没有释放！！！**
+
+##### (4)RejectedExecutionHandler：饱和策略
+
+当队列和线程池都满了，说明线程池处于饱和状态，那么必须对新提交的任务采用一种特殊的策略来进行处理。这个策略默认配置是AbortPolicy，表示无法处理新的任务而抛出异常。
+
+- JAVA提供了4中策略：
+
+  1. AbortPolicy：直接抛出异常
+  2. CallerRunsPolicy：只用调用所在的线程运行任务
+  3. DiscardOldestPolicy：丢弃队列里最近的一个任务，并执行当前任务。
+  4. DiscardPolicy：不处理，丢弃掉。
+
+- 设置策略有两种方式
+
+  1. 初始化的时候设置
+
+     ```java
+     RejectedExecutionHandler handler = new ThreadPoolExecutor.DiscardPolicy();
+     ThreadPoolExecutor threadPool = new ThreadPoolExecutor(2, 5, 60, TimeUnit.SECONDS, queue,handler);
+     ```
+
+  2. 使用set方法设置
+
+     ```java
+     ThreadPoolExecutor threadPool = new ThreadPoolExecutor(2, 5, 60, TimeUnit.SECONDS, queue);
+     threadPool.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+     ```
+
+
+
+
 ### 二.synchronized关键字
 
 #### 1)Synchronized应用的三种方式
@@ -799,7 +915,7 @@ https://blog.csdn.net/javazejian/article/details/72772461#volatile%E5%86%85%E5%A
 
 volatile在并发编程中很常见，但也容易被滥用，现在我们就进一步分析volatile关键字的语义。volatile是Java虚拟机提供的轻量级的同步机制。volatile关键字有如下两个作用
 
-- 保证被volatile修饰的共享gong’x变量对所有线程总数可见的，也就是当一个线程修改了一个被volatile修饰共享变量的值，新值总数可以被其他线程立即得知。
+- 保证被volatile修饰的共享变量对所有线程总数可见的，也就是当一个线程修改了一个被volatile修饰共享变量的值，新值总数可以被其他线程立即得知。
 - 禁止指令重排序优化。
 
 ##### (1)volatile的可见性
@@ -895,14 +1011,22 @@ instance = memory;   //3.设置instance指向刚分配的内存地址，此时in
 instance(memory);    //2.初始化对象
 ```
 
-​	由于步骤2和步骤3不存在数据依赖关系，而且无论重排前还是重排后程序的执行结果在单线程中并没有改变，因此这种重排优化是允许的。但是指令重排只会保证串行语义的执行的一致性(单线程)，但并不会关心多线程间的语义一致性。所以当一条线程访问instance不为null时，由于instance实例未必已初始化完成，也就造成了线程安全问题。那么该如何解决呢，很简单，我们使用volatile禁止instance变量被执行指令重排优化即可。
+​	由于步骤2和步骤3不存在数据依赖关系，而且无论重排前还是重排后程序的执行结果在单线程中并没有改变，因此这种重排优化是允许的。但是指令重排只会保证串行语义的执行的一致性(单线程)，但并不会关心多线程间的语义一致性。
+
+​	由于有一个『instance已经不为null但是仍没有完成初始化』的中间状态，而这个时候，如果有其他线程刚好运行到第一层if (instance == null)这里，这里读取到的instance已经不为null了，所以就直接把这个中间状态的instance拿去用了，就会产生问题。
+
+那么该如何解决呢，很简单，我们使用volatile禁止instance变量被执行指令重排优化即可。
 
 ```java
  //禁止指令重排优化
   private volatile static DoubleCheckLock instance;
 ```
 
+**注意:**
 
+​	volatile关键字的一个作用是禁止指令重排，把instance声明为volatile之后，对它的写操作就会有一个内存屏障（什么是内存屏障？），这样，在它的赋值完成之前，就不用会调用读操作。
+
+​	volatile阻止的不是singleton = new Singleton()这句话内部[1-2-3]的指令重排，而是保证了在一个写操作（[1-2-3]）完成之前，不会调用读操作（if (instance == null)）。
 
 ### 五.CAS(Compare And Swap)无锁机制
 
@@ -1000,7 +1124,7 @@ AtomicMarkableReference的实现原理与AtomicStampedReference类似，这里�
    //操作系统的内存页大小
    public native int pageSize();
    
-   提供实例对象新途径：
+   //提供实例对象新途径：
    //传入一个对象的class并创建该实例对象，但不会调用构造方法
    public native Object allocateInstance(Class cls) throws InstantiationException;
    ```
@@ -1897,4 +2021,6 @@ private final Node<K,V>[] initTable() {
     return tab;
 }
 ```
+
+这里详细说明了ConcurrentHashMap在jdk7和jdk8中的不同http://www.importnew.com/28263.html
 

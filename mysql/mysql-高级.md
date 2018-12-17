@@ -88,7 +88,7 @@
 
    ![](image/mysql-transaction/01.png)
 
-   mysql默认级别是：==Repeatable read 重复读==
+   mysql默认级别是：==Repeatable read 重复读==(行锁)
 
 #### 2)事务的创建
 
@@ -483,11 +483,11 @@ show CREATE view woma_man_avg;
       from 表;
       ```
 
-   3. 查看值
+4. 查看值
 
-      ```sql
-      select 局部变量名;
-      ```
+   ```sql
+   select 局部变量名;
+   ```
 
 ##### 3.用户变量与局部变量对比
 
@@ -661,7 +661,7 @@ call argument_double(@a_1,@a_2)$
 2. 练习
 
    ```sql
-   drop PROCEDURE  woman_to_man_age;、
+   drop PROCEDURE  woman_to_man_age;
    ```
 
 #### 8)查看存储过程的信息
@@ -732,7 +732,6 @@ end
 
 ```
 select 函数名(参数列表);
-
 ```
 
 #### 4)例子
@@ -811,7 +810,6 @@ SELECT fun_woman_to_man('李冰冰')$
 
      ```
      IF(表达式1,表达式2,表达式3)
-     
      ```
 
      执行顺序: 如果表达式1成立，返回表达式2的值，否则返回表达式3的值
@@ -837,7 +835,6 @@ SELECT fun_woman_to_man('李冰冰')$
        ...
        else 要返回的值n或者语句n;
        end 【case】;
-       
        ```
 
    - 情况二: 类似Java中的多重IF语句，一般用于区间判断
@@ -851,7 +848,6 @@ SELECT fun_woman_to_man('李冰冰')$
        ...
        else 要返回的值n或者语句n;
        end 【case】;
-       
        ```
 
    - 特点
@@ -936,7 +932,7 @@ SELECT fun_woman_to_man('李冰冰')$
      - 语法
 
        ```sql
-       【标签:】while 循环条件 do
+       【标签】:while 循环条件 do
        	循环体
         end while 【标签】;
        ```
@@ -1007,7 +1003,6 @@ SELECT fun_woman_to_man('李冰冰')$
    	 DECLARE loc int DEFAULT 0;
    	 
    	 WHILE i < num DO
-   	 
    			set len = FLOOR(RAND() * 26) + 1;
    			set last_str = '';
    			
@@ -1329,7 +1324,6 @@ explain SELECT * from my_test LIMIT 90,10;
 
 ```
 显示查询来自哪一张表
-
 ```
 
 ##### 4)type
@@ -2225,7 +2219,7 @@ drop TRIGGER woman_log_trigger;
 #### 4)总结
 
 	触发器是基于行触发的，所以删除、新增或者修改操作可能都会激活触发器，所以不要编写过于复杂的触发器，也不要增加过得的触发器，这样会对数据的插入、修改或者删除带来比较严重的影响，同时也会带来可移植性差的后果，所以在设计触发器的时候一定要有所考虑。
-
+	
 	触发器是一种特殊的存储过程，它在插入，删除或修改特定表中的数据时触发执行，它比数据库本身标准的功能有更精细和更复杂的数据控制能力。
 
 触发器的作用:

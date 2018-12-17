@@ -1,3 +1,5 @@
+### 一.IOC容器
+
 #### 1.@ComponentScan注解
 
 根据给的包名，扫描包下的bean到spring容器中 。
@@ -483,4 +485,472 @@ public void postProcessBeforeDestruction(Object bean, String beanName) throws Be
    }
    ```
 
+#### 9.@Value
+
+通过@Value将外部的值动态注入到Bean中，使用的情况有：
+
+- 注入普通字符串
+- 注入操作系统属性
+- 注入表达式结果
+- 注入其他Bean属性：注入beanInject对象的属性another
+- 注入文件资源
+- 注入URL资源
+
+```java
+@Value("normal")
+private String normal; // 注入普通字符串
+
+@Value("#{systemProperties['os.name']}")
+private String systemPropertiesName; // 注入操作系统属性
+
+@Value("#{ T(java.lang.Math).random() * 100.0 }")
+private double randomNumber; //注入表达式结果
+
+@Value("#{beanInject.another}")
+private String fromAnotherBean; // 注入其他Bean属性：注入beanInject对象的属性another，类具体定义见下面
+@Value("classpath:com/hry/spring/configinject/config.txt")
+private Resource resourceFile; // 注入文件资源
+
+@Value("http://www.baidu.com")
+private Resource testUrl; // 注入URL资源
+```
+
+#### 10.@PropertySource
+
+​	通过@PropertySource注解将properties配置文件中的值存储到Spring的 Environment中，Environment接口提供方法去读取配置文件中的值，参数是properties文件中定义的key值。
+
+在对应的Config类头部标上
+
+```java
+@PropertySource("classpath:/source.properties")
+```
+
+##### (1)@Value对属性进行赋值
+
+```java
+//@Value("${name}")
+private String name;
+```
+
+##### (2)EnvironmentAware接口对属性进行赋值
+
+1. 实现对应的接口方法
+
+   ```java
+   /**
+   * Set the {@code Environment} that this component runs in.
+   */
+   void setEnvironment(Environment environment);
+   ```
+
+2. 使用方法传过来的Environment对象对属性进行赋值
+
+   ```java
+   @Override
+   public void setEnvironment(Environment environment) {
+   
+   	setName(environment.getProperty("name"));
+   }
+   ```
+
+##### (3)EmbeddedValueResolverAware接口对属性进行赋值
+
+1. 实现对应接口方法
+
+   ```java
+   /**
+    * Set the StringValueResolver to use for resolving embedded definition values.
+    */
+   void setEmbeddedValueResolver(StringValueResolver resolver);
+   ```
+
+2. 使用方法传过来的StringValueResolver对象对属性进行赋值
+
+   ```java
+   @Override
+   public void setEmbeddedValueResolver(StringValueResolver resolver) {
+   
+       setName(resolver.resolveStringValue("${name}"));
+   }
+   ```
+
+#### 11.@Autowired,@Qualifier,@Primary
+
+##### (1)@Autowired,@Qualifier,@Primary协作运行规则
+
+1. @Autowired自动注入,默认是先以**byType**的方式,如果有多个类型相匹配,那么使用**byName**进行注入。
+2. 如果想**直接使用byName的注入方式**，那么需要在@Autowired注解的下面加上注解**@Qualifier**(“userService”),括号里面为要注入的bean的name。
+3. 如果在spring容器中有多个bean，可以通过**@Primary指定某个bean为主要的**，在使用@Autowired的时候注入的就是标记了@Primary的bean。
+
+##### (2)@Autowired可以使用的位置
+
+1. 属性
+
+2. 普通方法
+
+   ```java
+   @Bean
+   @Autowired
+   //也可以在方法的参数列表中，可以默认不写
+   public Dog dog(/*@Autowired*/ Person person){ 
+       
+       return new Dog();
+   }
+   ```
+
+3. 构造方法
+
+   ```java
+   @Autowired
+   public Animal(Person person) {
+       
+   	this.person = person;
+   }
+   ```
+
+**注意:**
+
+1. 使用@Autowired放在方法或者构造方法上面时，也可以把它放在**参数列表**中。
+2. @Autowired放在方法或者构造方法上面时一般会**省略掉**其本身。
+
+#### 12.@Profile
+
+​	@profile注解是spring提供的一个用来标明当前运行环境的注解。我们正常开发的过程中经常遇到的问题是，开发环境是一套环境，测试是一套环境，线上部署又是一套环境。这样从开发到测试再到部署，会对程序中的配置修改多次，尤其是从测试到上线这个环节，让测试的也不敢保证改了哪个配置之后能不能在线上运行。
+为了解决上面的问题，我们一般会使用一种方法，就是配置文件，然后通过不同的环境读取不同的配置文件，从而在不同的场景中跑我们的程序。
+
+​	那么，spring中的@Profile注解的作用就体现在这里。在spring使用DI来依赖注入的时候，能够根据当前制定的运行环境来注入相应的bean。最常见的就是使用不同的DataSource了。
+
+1. 配置不同环境的bean
+
+   ```java
+   @Configuration
+   public class MyConfig02 {
+   
+       @Bean
+       @Profile("dev")
+       public PersonInteface personIntefaceDev(){
+   
+           return new PersonDev();
+       }
+       
+       @Bean
+       @Profile("prod")
+       public PersonInteface personIntefaceProd(){
+   
+           return new PersonProd();
+       }
+   }
+   
+   ```
+
+2. 设置对应的环境
+
+   ```java
+   @RunWith(SpringRunner.class)
+   @SpringBootTest
+   //从指定的Config文件读取配置
+   @ContextConfiguration(classes = MyConfig02.class)
+   //指定环境
+   @ActiveProfiles(value = "prod")
+   public class ValueTest01 {
+   
+   
+       //自动注入ApplicationContext对象
+       @Autowired
+       private ApplicationContext applicationContext;
+       
+       @Test
+       public void test01(){
+   
+           PersonInteface personInteface = applicationContext.getBean(PersonInteface.class);
+   
+           System.out.println(personInteface.getName());
+   
+       }
+   
+   }
+   ```
+
+**注意:**
+
+1. @Profile可以放在对应的配置文件上面。对应@Profile设置的环境加载对应配置文件中的bean
+
+   ```java
+   @Configuration
+   @Profile(value = "dev")
+   public class MyConfig02 {
+   
+       @Bean
+       public PersonInteface personIntefaceDev(){
+   
+           return new PersonDev();
+       }
+   
+       @Bean
+       public Person person02(){
+   
+           return new Person();
+       }
+   
+       @Bean
+       public PersonInteface personIntefaceProd(){
+   
+           return new PersonProd();
+       }
+   }
+   ```
+
+   **上面表示只有在dev环境下面，才注册配置文件中的bean**。
+
+### 二.AOP
+
+#### 1.aop概念
+
+1. 横切关注点
+
+   对哪些方法进行拦截，拦截后怎么处理，这些关注点称之为横切关注点
+
+2. 切面（aspect）
+
+   类是对物体特征的抽象，切面就是对横切关注点的抽象
+
+3. 连接点（joinpoint）
+
+   被拦截到的点，因为Spring只支持方法类型的连接点，所以在Spring中连接点指的就是被拦截到的方法，实际上连接点还可以是字段或者构造器
+
+4. 切入点（pointcut）
+
+   对连接点进行拦截的定义
+
+5. 通知（advice）
+
+   所谓通知指的就是指拦截到连接点之后要执行的代码，通知分为前置、后置、异常、最终、环绕通知五类
+
+6. 目标对象
+
+   代理的目标对象
+
+7. 织入（weave）
+
+   将切面应用到目标对象并导致代理对象创建的过程
+
+8. 引入（introduction）
+
+   在不修改代码的前提下，引入可以在**运行期**为类动态地添加一些方法或字段
+
+#### 2.Spring对AOP的支持
+
+​	**Spring中AOP代理由Spring的IOC容器负责生成、管理，其依赖关系也由IOC容器负责管理**。因此，AOP代理可以直接使用容器中的其它bean实例作为目标，这种关系可由IOC容器的依赖注入提供。Spring创建代理的规则为：
+
+1. **默认使用Java动态代理来创建AOP代理**，这样就可以为任何接口实例创建代理了
+
+2. **当需要代理的类不是代理接口的时候，Spring会切换为使用CGLIB代理**，也可强制使用CGLIB
+
+AOP编程其实是很简单的事情，纵观AOP编程，程序员只需要参与三个部分：
+
+1. 定义普通业务组件
+
+2. 定义切入点，一个切入点可能横切多个业务组件
+
+   ```java
+   @Pointcut("execution(* com.tgy.spring.annotation.entity.Animal.* (..))")
+   private void pointCut(){
+   
+   }
+   ```
+
+3. 定义增强处理，增强处理就是在AOP框架为普通业务组件织入的处理动作
+
+   - 前置通知
+
+     ```java
+     @Before("pointCut()")
+     public void before(JoinPoint joinPoint){
+     
+         //获取切入的方法名
+         String methodName  = joinPoint.getSignature().getName();
+     	//获取切人的方法参数
+         List<Object> params = Arrays.asList(joinPoint.getArgs());
+         System.out.println(methodName + "开始执行");
+     }
+     ```
+
+   - 后置通知
+
+     ```java
+     @After(value = "pointCut()")
+     public void after(JoinPoint joinPoint){
+     
+         String methodName  = joinPoint.getSignature().getName();
+         System.out.println(methodName + "执行了");
+     }
+     ```
+
+   - 异常通知
+
+     ```java
+     @AfterThrowing(value = "pointCut()",throwing = "exp")
+     public void afterThrow(JoinPoint joinPoint,Exception exp){
+     
+     
+         String methodName  = joinPoint.getSignature().getName();
+         System.out.println(methodName + "发生了异常，异常为" + exp);
+     }
+     ```
+
+     **注意:** JoinPoint变量必须写在第一位，不然报错
+
+   - 最终通知
+
+     ```java
+     @AfterReturning(value = "pointCut()",returning = "param")
+     public void afterReturn(JoinPoint joinPoint,Object param){
+     
+         String methodName  = joinPoint.getSignature().getName();
+         System.out.println(methodName + "返回了,结果为:" + param);
+     }
+     ```
+
+     **注意:** JoinPoint变量必须写在第一位，不然报错
+
+   - 环绕通知
+
+     ```java
+     @Around("pointCut()")
+     public Object around(ProceedingJoinPoint joinPoint) throws Throwable{
+     
+     
+         System.out.println("around执行前");
+         Object o = joinPoint.proceed(joinPoint.getArgs());
+         System.out.println("around执行后");
+         return o;
+     
+     }
+     ```
+
+所以进行AOP编程的关键就是定义切入点和定义增强处理，一旦定义了合适的切入点和增强处理，AOP框架将自动生成AOP代理，即：**代理对象的方法=增强处理+被代理对象**的方法。
+
+完整的一个切面类:
+
+```java
+@Aspect
+@Component
+public class MyAspect {
+    
+    @Pointcut("execution(* com.tgy.spring.annotation.entity.Animal.* (..))")
+    private void pointCut(){
+
+    }
+
+    @Before("pointCut()")
+    public void before(JoinPoint joinPoint){
+
+        String methodName  = joinPoint.getSignature().getName();
+
+        List<Object> params = Arrays.asList(joinPoint.getArgs());
+
+        System.out.println(methodName + "开始执行");
+    }
+
+    @After(value = "pointCut()")
+    public void after(JoinPoint joinPoint){
+
+        String methodName  = joinPoint.getSignature().getName();
+        System.out.println(methodName + "执行了");
+    }
+
+    @AfterReturning(value = "pointCut()",returning = "param")
+    public void afterReturn(JoinPoint joinPoint,Object param){
+
+
+        String methodName  = joinPoint.getSignature().getName();
+
+        System.out.println(methodName + "返回了,结果为:" + param);
+    }
+
+    @AfterThrowing(value = "pointCut()",throwing = "exp")
+    public void afterThrow(JoinPoint joinPoint,Exception exp){
+
+
+        String methodName  = joinPoint.getSignature().getName();
+        System.out.println(methodName + "发生了异常，异常为" + exp);
+    }
+
+    @Around("pointCut()")
+    public Object around(ProceedingJoinPoint joinPoint) throws Throwable{
+
+
+        System.out.println("around执行前");
+        Object o = joinPoint.proceed(joinPoint.getArgs());
+        System.out.println("around执行后");
+        return o;
+
+    }
+
+}
+```
+
+#### 3.SpringBoot的AOP自动装配
+
+(1) 导入AOP对应的starter
+
+```
+<!-- spring boot aop starter依赖 -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-aop</artifactId>
+</dependency>
+```
+
+(2)由于导入了对应的包，在spring的自动配置包(org.springframework.boot.autoconfigure.aop.AopAutoConfiguration)中就会在springBoot启动的时候自动加载对应的配置文件类。
+
+```java
+@Configuration
+@ConditionalOnClass({ EnableAspectJAutoProxy.class, Aspect.class, Advice.class,
+		AnnotatedElement.class })
+@ConditionalOnProperty(prefix = "spring.aop", name = "auto", havingValue = "true", matchIfMissing = true)
+public class AopAutoConfiguration {
+
+	@Configuration
+	@EnableAspectJAutoProxy(proxyTargetClass = false)
+	@ConditionalOnProperty(prefix = "spring.aop", name = "proxy-target-class", havingValue = "false", matchIfMissing = false)
+	public static class JdkDynamicAutoProxyConfiguration {
+
+	}
+
+	@Configuration
+	@EnableAspectJAutoProxy(proxyTargetClass = true)
+	@ConditionalOnProperty(prefix = "spring.aop", name = "proxy-target-class", havingValue = "true", matchIfMissing = true)
+	public static class CglibAutoProxyConfiguration {
+
+	}
+
+}
+```
+
+@EnableAspectJAutoProxy注解
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import(AspectJAutoProxyRegistrar.class)
+public @interface EnableAspectJAutoProxy {
+
+	boolean proxyTargetClass() default false;
+
+	boolean exposeProxy() default false;
+}
+```
+
+通过AspectJAutoProxyRegistrar向spring容器中注入AOP处理对象。
+
+(3)定义切面类
+
+**注意点:**
+
+1. 把切面类加到spring容器中
+2. 在切面类上面加上@Aspect注解，告诉spring该类是一个切面。
+
+**postProcessBeforeInstantiation**
 

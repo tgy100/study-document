@@ -6,7 +6,7 @@
 
 ##### 2)NIO与IO的区别
 
-| NIO                     | IO                          |
+| IO                      | NIO                         |
 | ----------------------- | --------------------------- |
 | 面向流(Stream Oriented) | 面向缓冲区(Buffer Oriented) |
 | 阻塞I0(Blocking IO)     | 非阻塞I0(Non Blocking I0)   |
@@ -40,7 +40,7 @@
      - get() : 获取缓冲区中的数据
      - flip(): 把缓冲区变成读模式
      - rewind()： 设置position的位置到头部
-     - clear(); 清空数据
+     - clear(); 清空数据,把limit设置为capacity，position设置为0,
 
    - 缓冲区中的四个核心属性:
 
@@ -53,7 +53,7 @@
 
      - position :位置
 
-       表示缓冲区中正在操作数据的位置工
+       表示缓冲区中正在操作数据的位置
 
      - mark :标记
 
@@ -223,8 +223,7 @@
      
          //CREATE_NEW:文件存在就报错
          FileChannel outputChannel = FileChannel.open(Paths.get("/Users/tgy/Documents/firsttest/class-dump03"), StandardOpenOption.WRITE,StandardOpenOption.READ, StandardOpenOption.CREATE_NEW);
-     
-     
+         
          //内存映射文件
          MappedByteBuffer inputMap = inputChannel.map(FileChannel.MapMode.READ_ONLY, 0, inputChannel.size());
          MappedByteBuffer outputMap = outputChannel.map(FileChannel.MapMode.READ_WRITE, 0, inputChannel.size());
