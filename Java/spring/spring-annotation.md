@@ -130,6 +130,8 @@ Person person01 = applicationContext.getBean(Person.class);
 
  通过实现@Condition注解指定的Condition接口，对当前类是否加入spring容器做判断
 
+##### (1)使用方式
+
 1. 实现Condition接口
 
    ```java
@@ -156,6 +158,40 @@ Person person01 = applicationContext.getBean(Person.class);
    	return new Animal();
    }
    ```
+
+##### (2)springboot中的应用
+
+###### 1.@ConditionalOnProperty
+
+​	具体操作是通过其两个属性name以及havingValue来实现的，其中name用来从application.properties中读取某个属性值，如果该值为空，则返回false;如果值不为空，则将该值与havingValue指定的值进行比较，如果一样则返回true;否则返回false。如果返回值为false，则该configuration不生效；为true则生效。
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.TYPE, ElementType.METHOD })
+@Documented
+@Conditional(OnPropertyCondition.class)
+public @interface ConditionalOnProperty {
+
+    //数组，获取对应property名称的值，与name不可同时使用  
+    String[] value() default {}; 
+  
+    //property名称的前缀，可有可无  
+    String prefix() default "";
+    
+  //数组，property完整名称或部分名称（可与prefix组合使用，组成完整的property名称），与value不可同时使用 
+    String[] name() default {}; 
+  
+    //可与name组合使用，比较获取到的属性值与havingValue给定的值是否相同，相同才加载配置  
+    String havingValue() default "";
+  
+    //缺少该property时是否可以加载。如果为true，没有该property也会正常加载；反之报错  
+    boolean matchIfMissing() default false;
+  
+    //是否可以松散匹配，至今不知道怎么使用的  
+    boolean relaxedNames() default true;
+} 
+}
+```
 
 ==注意:==
 
@@ -232,6 +268,8 @@ Person person01 = applicationContext.getBean(Person.class);
   	return false;
   }
   ```
+
+
 
 #### 5.@Import注解
 
@@ -952,5 +990,462 @@ public @interface EnableAspectJAutoProxy {
 1. 把切面类加到spring容器中
 2. 在切面类上面加上@Aspect注解，告诉spring该类是一个切面。
 
-**postProcessBeforeInstantiation**
 
+
+### 三.事件
+
+#### 1.事件监听
+
+##### (1)实现ApplicationListener接口
+
+```java
+@Slf4j
+@Component
+public class MyEventListener implements ApplicationListener<ApplicationEvent> {
+    @Override
+    public void onApplicationEvent(ApplicationEvent event) {
+
+      log.info("接收到事件:{}",event);
+    }
+}
+```
+
+##### (2)使用@EventListener注解
+
+```java
+@Service
+@Slf4j
+public class MyService {
+
+    @EventListener()
+    public void event(ApplicationEvent applicationEvent){
+
+        log.info("event,接收到事件:{}",applicationEvent);
+    }
+}
+```
+
+**@EventListener原理**
+
+EventListenerMethodProcessor实现了**SmartInitializingSingleton**
+
+```java
+public interface SmartInitializingSingleton {
+
+	/**
+	 * 本方法是在单实例bean创建之后调用
+	 */
+	void afterSingletonsInstantiated();
+
+}
+```
+
+在EventListenerMethodProcessor的afterSingletonsInstantiated方法中调用了processBean(final String beanName, final Class<?> targetType)，在该方法中创建了ApplicationListenerMethodAdaptor类 ，把对应的用@EventListener装饰的类中的方法设置到ApplicationListenerMethodAdaptor实例中，
+
+```java
+ConfigurableApplicationContext context = this.applicationContext;
+Assert.state(context != null, "No ApplicationContext set");
+List<EventListenerFactory> factories = this.eventListenerFactories;
+Assert.state(factories != null, "EventListenerFactory List not initialized");
+for (Method method : annotatedMethods.keySet()) {
+    for (EventListenerFactory factory : factories) {
+        if (factory.supportsMethod(method)) {
+            Method methodToUse = AopUtils.selectInvocableMethod(method, context.getType(beanName));
+            ApplicationListener<?> applicationListener =
+                    factory.createApplicationListener(beanName, targetType, methodToUse);
+            if (applicationListener instanceof ApplicationListenerMethodAdapter) {
+                ((ApplicationListenerMethodAdapter) applicationListener).init(context, this.evaluator);
+            }
+            context.addApplicationListener(applicationListener);
+            break;
+        }
+    }
+}
+```
+
+#### 2.事件触发
+
+##### (1)自定义事件
+
+```java
+public class MyEvent extends ApplicationEvent {
+    /**
+     * Create a new ApplicationEvent.
+     *
+     * @param source the object on which the event initially occurred (never {@code null})
+     */
+    public MyEvent(Object source) {
+        super(source);
+    }
+}
+```
+
+##### (2)发布事件
+
+```java
+applicationContext.publishEvent(new MyEvent(new Object()));
+```
+
+#### 3.定义异步事件
+
+在spring容器启动的时候向容器中加入**SimpleApplicationEventMulticaster**,设置taskExecutor
+
+```java
+@Bean("applicationEventMulticaster")
+public SimpleApplicationEventMulticaster simpleApplicationEventMulticaster(@Autowired BeanFactory beanFactory){
+
+    SimpleApplicationEventMulticaster multicaster = new SimpleApplicationEventMulticaster(beanFactory);
+    multicaster.setTaskExecutor(Executors.newScheduledThreadPool(10));
+    return multicaster;
+}
+```
+
+### 四.servlet3.0新规范
+
+#### 1.为servlet，listener，filter添加注解方式
+
+```
+@WebServlet
+@WebFilter
+@WebListener
+```
+
+```java
+@WebServlet("/name")
+public class MyServlet01 extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        resp.getWriter().write("sadasd");
+    }
+}
+```
+
+#### 2.去除web.xml
+
+##### 1)在类路径下创建 META-INF/services 目录
+
+​	再该路径下创建javax.servlet.ServletContainerInitializer文件，里面写上实现了ServletContainerInitializer类的全路径。
+
+![image-20190102103109996](image/meta-info.png)
+
+```
+com.tgy.config.MyServletContainerInitializer
+```
+
+##### 2)实现ServletContainerInitializer接口
+
+```java
+@HandlesTypes(MyServletInitializer.class)
+public class MyServletContainerInitializer implements ServletContainerInitializer {
+    @Override
+    public void onStartup(Set<Class<?>> set, ServletContext servletContext) throws ServletException {
+
+
+        //set里面就是实现了MyServletInitializer接口的对象
+        
+        //添加servlet
+        ServletRegistration.Dynamic servlet02 = servletContext.addServlet("myServlet02", new MyServlet02());
+        servlet02.addMapping("/name02");
+
+        //添加filter
+        FilterRegistration.Dynamic filter01 = servletContext.addFilter("filter01", "com.tgy.filter.MyFilter");
+
+        //添加filter拦截的路径
+        filter01.addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST),true,"/");
+
+        //添加listener
+        servletContext.addListener(new MyServletContextListener());
+    }
+}
+```
+
+**注意:**
+
+1. @HandlesTypes注解
+
+   该注解里面填写要收集的类或者接口，在执行onStartup时，会把该类及其子类的类定义回传到方法的set参数中。方便我们定义自己逻辑代码。
+
+   以下是springWeb自定义的实现ServletContainerListener接口的类
+
+   ```java
+   @HandlesTypes(WebApplicationInitializer.class)
+   public class SpringServletContainerInitializer implements ServletContainerInitializer {
+   
+   	@Override
+   	public void onStartup(@Nullable Set<Class<?>> webAppInitializerClasses, ServletContext servletContext)
+   			throws ServletException {
+   
+   		List<WebApplicationInitializer> initializers = new LinkedList<>();
+   
+   		if (webAppInitializerClasses != null) {
+   			for (Class<?> waiClass : webAppInitializerClasses) {
+   				// Be defensive: Some servlet containers provide us with invalid classes,
+   				// no matter what @HandlesTypes says...
+   				if (!waiClass.isInterface() && !Modifier.isAbstract(waiClass.getModifiers()) &&
+   						WebApplicationInitializer.class.isAssignableFrom(waiClass)) {
+   					try {
+   						initializers.add((WebApplicationInitializer)
+   								ReflectionUtils.accessibleConstructor(waiClass).newInstance());
+   					}
+   					catch (Throwable ex) {
+   						throw new ServletException("Failed to instantiate WebApplicationInitializer class", ex);
+   					}
+   				}
+   			}
+   		}
+   
+   		if (initializers.isEmpty()) {
+   			servletContext.log("No Spring WebApplicationInitializer types detected on classpath");
+   			return;
+   		}
+   
+   		servletContext.log(initializers.size() + " Spring WebApplicationInitializers detected on classpath");
+   		AnnotationAwareOrderComparator.sort(initializers);
+   		for (WebApplicationInitializer initializer : initializers) {
+   			initializer.onStartup(servletContext);
+   		}
+   	}
+   
+   }
+   ```
+
+2. 为web容器添加servlet，filter，listener
+
+   使用servletContext注册servlet，filter，listener对象
+
+   - 添加servlet
+
+     ```java
+     //添加servlet
+     ServletRegistration.Dynamic servlet02 = servletContext.addServlet("myServlet02", new MyServlet02());
+     servlet02.addMapping("/name02");
+     ```
+
+   - 添加filter
+
+     ```java
+     //添加filter
+     FilterRegistration.Dynamic filter01 = servletContext.addFilter("filter01", "com.tgy.filter.MyFilter");
+     
+     //添加filter拦截的路径
+     filter01.addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST),true,"/");    
+     ```
+
+   - 添加listener
+
+     ```java
+     //添加listener
+     servletContext.addListener(new MyServletContextListener());
+     ```
+
+#### 3.接入springMVC
+
+##### 1)接入原理
+
+1. 在spring-web包中有javax.servlet.ServletContainerInitializer,里面有SpringServletContainerInitializer
+
+   ![image-20190102113230128](image/springmvc-servlet.png)
+
+   ```java
+   @HandlesTypes(WebApplicationInitializer.class)
+   public class SpringServletContainerInitializer implements ServletContainerInitializer {
+   
+   	@Override
+   	public void onStartup(@Nullable Set<Class<?>> webAppInitializerClasses, ServletContext servletContext)
+   			throws ServletException {
+   
+   		List<WebApplicationInitializer> initializers = new LinkedList<>();
+   
+   		if (webAppInitializerClasses != null) {
+   			for (Class<?> waiClass : webAppInitializerClasses) {
+   				// Be defensive: Some servlet containers provide us with invalid classes,
+   				// no matter what @HandlesTypes says...
+   				if (!waiClass.isInterface() && !Modifier.isAbstract(waiClass.getModifiers()) &&
+   						WebApplicationInitializer.class.isAssignableFrom(waiClass)) {
+   					try {
+   						initializers.add((WebApplicationInitializer)
+   								ReflectionUtils.accessibleConstructor(waiClass).newInstance());
+   					}
+   					catch (Throwable ex) {
+   						throw new ServletException("Failed to instantiate WebApplicationInitializer class", ex);
+   					}
+   				}
+   			}
+   		}
+   
+   		if (initializers.isEmpty()) {
+   			servletContext.log("No Spring WebApplicationInitializer types detected on classpath");
+   			return;
+   		}
+   
+   		servletContext.log(initializers.size() + " Spring WebApplicationInitializers detected on classpath");
+   		AnnotationAwareOrderComparator.sort(initializers);
+   		for (WebApplicationInitializer initializer : initializers) {
+   			initializer.onStartup(servletContext);
+   		}
+   	}
+   
+   }
+   ```
+
+   只要实现了WebApplicationInitializer接口，就可以被springMVC获取到，然后调用里面的onStartup方法，实现初始化
+
+   ![image-20190102113613588](image/springMVC-webapplicationInitializer.png)
+
+2. 在AbstractContextLoaderInitializer类中有**registerContextLoaderListener**方法，注册spring的容器
+
+   ```
+   protected void registerContextLoaderListener(ServletContext servletContext) {
+   	WebApplicationContext rootAppContext = createRootApplicationContext();
+   	if (rootAppContext != null) {
+   		ContextLoaderListener listener = new ContextLoaderListener(rootAppContext);
+   		listener.setContextInitializers(getRootApplicationContextInitializers());
+   		servletContext.addListener(listener);
+   	}
+   	else {
+   		logger.debug("No ContextLoaderListener registered, as " +
+   				"createRootApplicationContext() did not return an application context");
+   	}
+   }
+   ```
+
+   在**createRootApplicationContext()**方法中创建spring容器,在AbstractAnnotationConfigDispatcherServletInitializer类中重写了该方法。
+
+   ```java
+   protected WebApplicationContext createRootApplicationContext() {
+   	Class<?>[] configClasses = getRootConfigClasses();
+   	if (!ObjectUtils.isEmpty(configClasses)) {
+   		AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
+   		context.register(configClasses);
+   		return context;
+   	}
+   	else {
+   		return null;
+   	}
+   }
+   ```
+
+   在**getRootConfigClasses();**方法中获取springMVC配置文件，只需要在子类复古该方法。
+
+3. 在**AbstractDispatcherServletInitializer**类的registerDispatcherServlet方法中注册servlet，filter，listener。
+
+   ```java
+   protected void registerDispatcherServlet(ServletContext servletContext) {
+   		String servletName = getServletName();
+   		Assert.hasLength(servletName, "getServletName() must not return null or empty");
+   
+       
+   		WebApplicationContext servletAppContext = createServletApplicationContext();
+   		Assert.notNull(servletAppContext, "createServletApplicationContext() must not return null");
+   
+       //创建dispatchServlet
+   		FrameworkServlet dispatcherServlet = createDispatcherServlet(servletAppContext);
+   		Assert.notNull(dispatcherServlet, "createDispatcherServlet(WebApplicationContext) must not return null");
+   		dispatcherServlet.setContextInitializers(getServletApplicationContextInitializers());
+   		//注册dispatchServlet
+   		ServletRegistration.Dynamic registration = servletContext.addServlet(servletName, dispatcherServlet);
+   		if (registration == null) {
+   			throw new IllegalStateException("Failed to register servlet with name '" + servletName + "'. " +
+   					"Check if there is another servlet registered under the same name.");
+   		}
+   
+   		registration.setLoadOnStartup(1);
+   		registration.addMapping(getServletMappings());
+   		registration.setAsyncSupported(isAsyncSupported());
+   
+   		Filter[] filters = getServletFilters();
+   		if (!ObjectUtils.isEmpty(filters)) {
+   			for (Filter filter : filters) {
+   				registerServletFilter(servletContext, filter);
+   			}
+   		}
+   
+   		customizeRegistration(registration);
+   	}
+   
+   ```
+
+   创建springMVC容器:
+
+   ```java
+   WebApplicationContext servletAppContext = createServletApplicationContext();
+   ```
+
+   在子类AbstractAnnotationConfigDispatcherServletInitializer重写
+
+   ```java
+   @Override
+   protected WebApplicationContext createServletApplicationContext() {
+   	AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
+   	Class<?>[] configClasses = getServletConfigClasses();
+   	if (!ObjectUtils.isEmpty(configClasses)) {
+   		context.register(configClasses);
+   	}
+   	return context;
+   }
+   ```
+
+   而通过**getServletConfigClasses();**方法获取配置文件，只要定制了子类，实现该方法即可。
+
+
+
+##### 2).定义AbstractAnnotationConfigDispatcherServletInitializer的子类MyServletInitializer
+
+```java
+public class MyServletInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+
+    @Override
+    protected Class<?>[] getRootConfigClasses() {
+        //spring  配置文件，扫描的service,dao
+        return new Class[]{SpringConfig.class};
+    }
+
+    @Override
+    protected Class<?>[] getServletConfigClasses() {
+
+        //spring mvc 配置文件，扫描的controller，配置静态路径
+        return new Class[]{SpringMVCConfig.class};
+    }
+
+    @Override
+    protected String[] getServletMappings() {
+        //DispatchServlet的mapping
+        return new String[]{"/"};
+    }
+}
+```
+
+- SpringConfig文件为spring配置文件
+
+  ```java
+  @Configuration
+  @ComponentScan(basePackages = "com.tgy",
+                  excludeFilters = {@ComponentScan.Filter(type = FilterType.ANNOTATION,classes = Controller.class)})
+  public class SpringConfig {
+  }
+  ```
+
+- SpringMVCConfig为springMVC的文件
+
+  ```java
+  @Configuration
+  @ComponentScan(basePackages = "com.tgy.web",
+                  includeFilters = {@ComponentScan.Filter(type = FilterType.ANNOTATION,classes = Controller.class)},
+                  useDefaultFilters = false)
+  @EnableWebMvc
+  public class SpringMVCConfig implements WebMvcConfigurer {
+      
+      @Override
+      public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+  
+          converters.add(new MappingJackson2HttpMessageConverter());
+      }
+  }
+  ```
+
+  **注意:**
+
+  在springMVC中要加上其他类似xml的配置，则要加上@EnableWebMvc，同时实现WebMvcConfigurer接口，实现接口里面的对应方法即可。

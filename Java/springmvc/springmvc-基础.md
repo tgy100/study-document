@@ -121,7 +121,7 @@
    ```
 
 
-#### 3.@HiddenHttpMethodFilter注解
+#### 3.HiddenHttpMethodFilter注解
 
 ##### 1）作用
 
@@ -168,7 +168,7 @@ public String requestParam(@RequestParam(value = "age",required = false,defaultV
     }
 ```
 
-#### 5.@RequestParam
+#### 5.@RequestHeader
 
 ##### 获取请求头参数
 
