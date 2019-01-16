@@ -433,7 +433,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
       | 引擎   | 对比                                                         |
       | ------ | ------------------------------------------------------------ |
       | MYISAM | count(*)效率最高                                             |
-      | INNODB | count(*)与count(1*)差不多，但是比count(列名)（列名是主键除外） |
+      | INNODB | count(\*)与count(1)差不多，但是比count(列名)（列名是主键除外）快 |
 
       综上：推荐使用count(*)
 
@@ -651,7 +651,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
   - 外连接
 
-    应用场景:==用于查询一个表中有，另一个表中没有的记录
+    应用场景:用于查询一个表中有，另一个表中没有的记录
 
     特点:
 
@@ -673,29 +673,22 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
 
 
-    - 左外连接
-    
-      ```sql
-      SELECT * FROM woman w left JOIN man m 
-      on w.man_id = m.id
-      WHERE m.id is null
-      ```
-    
-    - 右外连接(交换表的顺序即可)
-    
-      ```sql
-      SELECT * FROM man m right JOIN  woman w 
-      on w.man_id = m.id
-      WHERE m.id is null
-      ```
-    
-    - 全外连接(mysql不支持)
-    
-      ```sql
-      #全外连接的结果 = 内连接 + 主表有但从表没有的+ 从表有但主表没有的
-      SELECT * FROM mam m FULL JOIN woman w
-      on m.id = w.man_id
-      ```
+```sql
+- 左外连接
+  SELECT * FROM woman w left JOIN man m 
+  on w.man_id = m.id
+  WHERE m.id is null
+
+- 右外连接(交换表的顺序即可)
+  SELECT * FROM man m right JOIN  woman w 
+  on w.man_id = m.id
+  WHERE m.id is null
+
+- 全外连接(mysql不支持)
+  #全外连接的结果 = 内连接 + 主表有但从表没有的+ 从表有但主表没有的
+  SELECT * FROM mam m FULL JOIN woman w
+  on m.id = w.man_id
+```
 
   - 交叉连接
 
@@ -1076,7 +1069,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
    ```sql
    INSERT into man(id,`name`,age) 
-   VALUES('xadsxsad3292','潘粤明',42),
+   VALUES ('xadsxsad3292','潘粤明',42),
    	  ('ghsdxd34242ddas','郑恺',32)
    ```
 
