@@ -1123,6 +1123,73 @@ u-
 - umask #:设定
   命令总结: chmod, chown, chgrp, umask
 
+##### 8) 特殊权限
+
+​	SUID, SGID, Sticky
+
+###### ①. 安全上下文
+
+​	前提:进程有属主和属组:文件有属主和属组:
+
+1. 任何一个可执行程序文件能不能启动为进程:取决发起者对程序文件是否拥有执行权限
+2. 启动为进程之后，其进程的属主为发起者:进程的属组为发起者所属的组:
+3. 进程访问文件时的权限，取决于进程的发起者:
+   - 进程的发起者，同文件的属主:则应用文件属主权限:
+   - 进程的发起者，属于文件的属组;则应用文件属组权限;
+   - 应用文件“其它”权限:
+
+###### ②.SUID
+
+1. 任何一个可执行程序文件能不能启动为进程取决发起者对程序文件是否拥有执行权限:
+
+2. 启动为进程之后，其进程的属主为原程序文件的属主，
+3. 权限设定:
+   chmod U+s FILE. ..
+   chmod U-s FILE...
+
+###### ③.SGID
+
+1. 默认情况下，用户创建文件时，其属组为此用户所属的基本组;
+   一旦某目录被设定了SGID,则对此目录有写权限的用户在此目录中创建的文件所属的组为此目录的属组:
+2. 权限设定:
+   chmod g+s DIR...
+   chmod g-s DIR...
+
+###### ④.Sticky
+
+1. 对于一个多人可写的目录，如果设置了sticky,则每个用户仅能删除自己的文件;
+2. 权限设定:
+   chmod o+t DIR...
+   chmod o-t DIR...
+
+###### ⑤.使用数字添加以上权限
+
+SUID SGID STICKY
+
+0	   0        0	
+000 ~ 111
+
+0 ~ 	     7
+
+```shell
+#添加sticky位
+chmod 4777 /tmp/a.txt 
+# 添加suid,sgid
+chmod 3777 /tmp/a.txt
+```
+
+###### ⑥. 几个权限位映射:
+
+- SUID: user, 占据属主的执行权限位: 
+  - s 属主拥有x权限
+  - S 属主没有x权限
+- SGID: group, 占据group的执行权限位;
+  - s  group拥有 x权限
+  - S group没有 x权限
+- Sticky: other, 占据ohter的执行权限位;
+  - t other拥有x权限
+  - T other没有x权限
+
 #### (9)文本处理
 
 Linux上文本处理三剑客:
@@ -1762,6 +1829,46 @@ let var--
 ([ $# -ge 1 ] || (echo "至少一个参数" && exit 1)) && (grep '^[[:space:]]*$' $1 | wc -l)
 ```
 
+##### 7) if逻辑判断
+
+###### ①. 语法
+
+```shell
+help if
+```
+
+```shell
+if COMMANDS; then 
+	COMMANDS; 
+[elif COMMANDS; then 
+	COMMANDS; 
+]... 
+[else COMMANDS;] 
+fi
+```
+
+```shell
+#! /bin/bash
+
+if [ $# -lt 1 ]; then
+    
+    echo "至少一个参数"
+    exit 1;
+fi
+
+if id $1 &> /dev/null ; then
+    
+    echo "$1 用户存在";
+    exit 0;
+else 
+    
+    useradd $1 &> /dev/null
+    [ $? -eq 0 ] && echo "$1" | passwd --stdin $1 &> /dev/null && exit 0 || echo "创建用户失败" && exit 1
+fi
+```
+
+
+
 #### (11) vim 编辑器
 
 ##### 1) 基本模式:
@@ -2230,6 +2337,112 @@ find [OPTION]... [查找路径] [查找条件] [处理动作]
    find /tmp \( ! -user "root" -a ! -name "fstab" \) -ls
    find /tmp -not \( -user "root" -o -name "fstab" \) -ls
    find /tmp ! \( -user "root" -o -name "fstab" \) -ls
+   ```
+
+5. 根据文件大小来查找:
+   -size [+ | - ]#单位
+
+   - 常用单位: k, M, G
+
+   - \#unit: ( #-1, #] : 从#减1到# 
+
+   - -#unit:[0,# - 1]:  从0到#减1
+
+   - +#unit: (#, +∞): 从#到无穷大
+
+     ```shell
+     #查找1k到3k的文件
+     find . -size -4k -a -size +1k -exec ls -lh {} \;
+     ```
+
+6. 根据时间戳:
+
+   - 以“天”为单位:
+     -a/c/m time [+|-]#,
+
+     - \#: [#, #+1) : #到#加1天之间
+     - +#: [#+1 ,+∞):从#加1到无穷 
+     - -#: [0,#): 最近#天之内
+
+   - 以“分钟”为单位:
+
+     -a/c/m min
+
+7. 根据权限查找:
+   -perm [+|- ]MODE
+
+   - MODE:精确权限匹配
+   - /MODE: 任何一类(u,g,o)对象的权限中只要能一位匹配即可;
+   - -MODE: 每一类对象都必须同时拥有为其指定的权限标准;
+
+###### ⑤. 处理动作:
+
+- -print: 默认的处理动作，显示至屏幕;
+- -ls: 类似于对查找到的文件执行“ls -l”命令; 
+- -delete: 删除查找到的文件:
+- -fls /path/to/someflle: 查找到的所有文件的长格式信息保存至指定文件中;
+- -ok command {} \; 对查找到的每个文件执行由COMMAND指定的命令;
+  对于每个文件执行命令之前，都会交互式要求用户确认:
+- -exec command {} \; 对查找到的每个文件执行由COMMAND指定的命令;
+  - {}:用于引用查找到的文件名称自身:
+- 注意: find传 递查找到的文件至后面指定的命令时，查找到所有符合条件的文件一次性传递给后面的命令: 
+  有些命令不能接受过多参数，此时命令执行可能会失败;另一种方式可规避此问题:
+  find| xargs COMMAND
+
+⑥. 练习:
+
+1. 查找/var目录下属为root, 且属组为mail的所有文件或目录;
+
+   ```shell
+   find . -user tgy01 -a -group nologin  -ls
+   ```
+
+2. 查找/usr目录下不属于root、bin或hadoop的所有文件或目录;
+
+   ```shell
+   find /user -not \( -user root -o -user bin -o -user hadoop \) -a \( -type f -o -type d \) -ls
+   #同时不能属于上面三个用户的文件或者目录
+   find /usr -not -user root -a -not -user bin -a -not -user hadopp 
+   ```
+
+   这里的描述应该这样: 查找 /usr 目录下面**既不属于root也不属于bin同时也不属于hadoop**的文件或者目录。
+
+3. 查找/etc目录下最近一周内其内容修改过，同时属主不为root, 也不是hadoop的文件或目录; 
+
+   ```shell
+   find . -mtime -7 -a -not \( -user root -o -user hadoop \) -a \( -type f -o -type d \) -ls
+   ```
+
+4. 查找当前系统上没有属主或属组，且最近一个周内曾被访问过的文件或目录:
+
+   ```shell
+   find . \( -nouser -o -nogroup \) -a \( -atime -7 \)  -ls
+   ```
+
+5. 查找/etc目录下大于1M且类型为普通文件的所有文件或目录:
+
+   ```shell
+   find /etc -size +1M -a -type f -ls 
+   ```
+
+6. 查找/etc目录下所有用户都没有写权限的文件;
+
+   ```shell
+    # 本来是 not user w -a not group w -a not others w 
+    # 现在是 not ( user w -o group w -o others w )
+    find /etc -not -perm +222 -ls 
+   ```
+
+7. 查找/etc目录下至少有一类用户没有执行权限的文件; 
+
+   ```
+   find /etc -not -perm -111 -ls
+   ```
+
+8. 查找/etc/init.d目录下，所有用户都有执行权限，且其它用户有写权限的文件; 
+
+   ```shell
+   find /etc/init.d/ -perm 113 -ls
    ```
 
    

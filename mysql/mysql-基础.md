@@ -1173,6 +1173,19 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
   where m.`name` = '张无忌'
   ```
 
+  注意:
+
+  1. from 后面的表使用别名之后，delete 后面删除的表名必须使用别名
+
+     ```sql
+     #这样会报错
+     DELETE `crud_student` FROM `crud_student` s where s.`id` not in(
+     	1,2
+     );
+     ```
+
+  2. 
+
 #### 2)使用truncate删除
 
 1. 语法
@@ -1401,9 +1414,9 @@ ALTER TABLE book change|modify|add|rename to|drop column 列名 【列类型 约
 
 1. 分类
 
-   |        | tinyint | sampling | mediumint | Int, integer | Biting |
-   | ------ | ------- | -------- | --------- | ------------ | ------ |
-   | 字节数 | 1       | 2        | 3         | 4            | 8      |
+   |              | tinyint | smallint | mediumint | Int, integer | Bitint |
+   | ------------ | ------- | -------- | --------- | ------------ | ------ |
+   | 字节数(byte) | 1       | 2        | 3         | 4            | 8      |
 
 2. 特点
 
@@ -1521,7 +1534,7 @@ ALTER TABLE book change|modify|add|rename to|drop column 列名 【列类型 约
 
    - 从表的外键列类型与主表的关联列类型一致，名称无要求
 
-   - 主表的关联列必须是一个key(一般是主键或者唯一键)
+   - 主表的关联列必须是一个**key**(一般是主键或者唯一键)
 
    - 插入数据时，先插入主表，再插入从表
 
@@ -1604,7 +1617,7 @@ CREATE table `stuinfo`(
    	`age` int DEFAULT 18,
    	`major_id` int,
        `seat` int unique,
-   	CONSTRAINT fk_stuinfo_marg FOREIGN KEY(`major_id`) REFERENCES major(`id`)
+   	CONSTRAINT `fk_stuinfo_marg` FOREIGN KEY(`major_id`) REFERENCES major(`id`)
    )
    ```
 
@@ -1647,7 +1660,7 @@ CREATE table `stuinfo`(
    - 表级约束
 
      ```sql
-     alter table `stuinfo` add  unique(seat)
+     alter table `stuinfo` add unique(seat)
      ```
 
 5. 添加外键
@@ -1716,7 +1729,7 @@ alter table `major` modify column `id` int PRIMARY KEY
 
 1. 标识列只能与是一个key(unique或者primary key)类型搭配使用
 
-2. 一个表至多有一个自增长列
+2. 一个表**至多**有一个自增长列
 
 3. 自增长列的类型只能是数字类型(int,float,double)
 
