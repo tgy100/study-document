@@ -177,7 +177,6 @@ ROLLBACK TO p1;#回滚到保存点
 
 ```
 视图是从mysql5.0.1版本开始提供的视图功能。一种虚拟存在的表，行和列的数据都来自定义视图的查询中使用的表，并且是在使用视图时==动态生成的==，只保存了==sql逻辑==，不保存查询结果
-
 ```
 
 #### 2)应用场景
@@ -300,7 +299,6 @@ show CREATE view woma_man_avg;
 
   ```
   select 'abc';
-  
   ```
 
 - 子查询
@@ -343,7 +341,7 @@ show CREATE view woma_man_avg;
 
    变量是由系统提供，不是用户定义的，属于服务器层面的
 
-2. 使用语法
+2. 使用语法(gloabal 全局变量，session 会话变量)
 
    - 查看所有的系统变量
 
@@ -691,6 +689,29 @@ call argument_double(@a_1,@a_2)$
    show create PROCEDURE woman_to_man;
    ```
 
+#### 9)练习
+
+1. 输出表名，获取表有多少行数据
+
+   ```sql
+   drop procedure if exists table_count;
+   delimiter $
+   create procedure table_count(in table_name varchar(32), out num int)
+   begin
+   	-- 这里只能全局变量，不能使用局部变量接收查询的值
+   	-- declare tmp_count int default 0;
+   	set @t_count=0;
+       set @sqlStr = concat("select count(*) into @t_count from ", table_name);
+       prepare stmt from @sqlStr;
+       execute stmt;
+   	set num=@t_count;
+   	deallocate prepare stmt;
+   end $
+   delimiter ;
+   ```
+
+   
+
 ### 五.函数
 
 #### 1)说明
@@ -785,7 +806,7 @@ SELECT fun_woman_to_man('李冰冰')$
 
 
 
-#### 5)删除存储过程
+#### 5)删除函数
 
 1. 语法
 
@@ -799,7 +820,7 @@ SELECT fun_woman_to_man('李冰冰')$
    drop FUNCTION fun_woman_to_man;
    ```
 
-#### 6)查看存储过程的信息
+#### 6)查看函数的信息
 
 1. 语法
 
@@ -919,7 +940,6 @@ SELECT fun_woman_to_man('李冰冰')$
      ...
      【else 语句n;】
      end if;
-     
      ```
 
    - 注意
@@ -937,6 +957,26 @@ SELECT fun_woman_to_man('李冰冰')$
        END IF;
      END $
      ```
+
+   - 自定义的IF
+
+     ```sql
+     drop function if exists MY_IF;
+     delimiter $
+     create function MY_IF(flag int, param0 varchar(32),param1 varchar(32)) returns varchar(32)
+     begin
+     
+     	if flag=0 then
+     		return param1;
+     	else
+     		return param0;
+     	-- 注意end if后面有一个分号;
+     	end if;
+     end $
+     delimiter ;
+     ```
+
+     
 
 #### 2)循环结构
 
@@ -1074,6 +1114,53 @@ SELECT fun_woman_to_man('李冰冰')$
    end $
    ```
 
+   重新写:
+
+   ```sql
+   drop function if exists randStr;
+   delimiter $
+   create function randStr( len int) returns varchar(64)
+   begin
+   	declare idx int default 0;
+   	declare all_char varchar(26) default 'abcdefghijklmnopqrstuvwxyz';
+   	declare result_str varchar(64) default '';
+   	declare tmp_char varchar(10) default '';
+   
+   	if len <=0 then
+   		return result_str;
+   	end if;
+   	
+   	while idx < len do
+   		-- 注意：mysql 字符串起始位置从1开始
+   		set tmp_char = substr(all_char,ceil(rand() * length(all_char)),1);
+       	set result_str=concat(result_str,tmp_char);
+       	set idx=idx+1;
+       end while;
+   
+       return result_str;
+   end $
+   delimiter ;
+   
+   drop procedure if exists rand_count;
+   delimiter $
+   create procedure rand_count(in count int, in len int)
+   begin
+   	
+   	declare idx int default 0;
+   
+   	while idx < count do
+   
+   		select randStr(len);
+   		set idx=idx+1;
+   	end while;	
+   
+   end $
+   delimiter ;
+   
+   ```
+
+   
+
 ### 七.索引
 
 #### 1)索引是什么
@@ -1114,7 +1201,7 @@ SELECT fun_woman_to_man('李冰冰')$
 
 ##### 3.复合索引
 
-即一个索引包含多个列
+​	即一个索引包含多个列
 
 #### 4)索引的操作
 
@@ -1208,7 +1295,7 @@ show INDEX from my_test;
 2. 频繁作为查询条件的字段应该创建索引
 3. 查询中与其他表关联的字段，外键关系建立索引
 4. 频繁更新的字段不适合创建索引，因为每次更新还要更新索引，加重了io负担
-5. 在高并发下倾向创建组合索引
+5. 在高并发下倾向创建**组合索引**
 6. 查询中的排序字段应该建立索引。排序字段若通过索引将大大提高排序速度
 7. 查询中的统计或者分组字段应该建立索引。
 
@@ -1225,7 +1312,6 @@ show INDEX from my_test;
 
 ```
 使用explain关键字可以模拟优化器执行sql查询语句，从而知道mysql是如何处理你的sql语句，分析查询语句或者表结构的性能瓶颈
-
 ```
 
 #### 2）作用
@@ -1363,7 +1449,7 @@ explain SELECT * from my_test LIMIT 90,10;
 
      const在==单表==查询中使用到了唯一索引,只查到了==最多一条==数据
 
-   - eq_ref
+   - eq_ref(唯一外键)
 
      参与连接运算的表是内表（在代码实现的算法中，两表连接时作为循环中的内循环遍历的对象，这样的表称为内表）。
 
@@ -1380,7 +1466,7 @@ explain SELECT * from my_test LIMIT 90,10;
 
      ==多表==查询中内表使用了唯一索引查询,只查到了==最多一条==数据，则对应的查询的type类型就是eq_ref
 
-   - ref
+   - ref(查询)
 
      非唯一索引扫描，返回匹配的某个==单值==的所有行(==多行==结果)
 
@@ -1407,15 +1493,15 @@ explain SELECT * from my_test LIMIT 90,10;
 
       如果上面的sql中age最小值大于28，则是index,因为要查找全部索引
 
-   - index
+   - index 
 
-     遍历索引，获取到了数据
+     scan full index 遍历索引，获取到了数据
 
      ```sql
      EXPLAIN SELECT w.age from woman w where w.age >= 28;
      ```
 
-   - all
+   - all (scan full column)
 
      全表扫描或者范围扫描：不使用索引，顺序扫描，直接读取表上的数据（访问数据文件）
 
@@ -1423,7 +1509,6 @@ explain SELECT * from my_test LIMIT 90,10;
 
 ```
 可能用在查询中的索引，一个或者多个
-
 ```
 
 ##### 6)key
@@ -1449,7 +1534,6 @@ explain SELECT * from my_test LIMIT 90,10;
 
 ```
 关联其他表或者条件的参数类型或者来源
-
 ```
 
 ```sql
@@ -1515,7 +1599,7 @@ crud.w.man_id 表明 w.man_id = m.id 中的w.man_id 来自数据库crud的w表�
   - 如果没有头部
 
     ```sql
-    EXPLAIN SELECT * from woman where   age = 34 and man_id='sas';
+    EXPLAIN SELECT * from woman where age = 34 and man_id='sas';
     ```
 
     ![](image/mysql-explain/no_header.png)
@@ -1585,7 +1669,7 @@ EXPLAIN SELECT * from woman where  `name` like '%as';
 ==使用覆盖索引，解决like使索引失效问题==
 
 ```sql
-EXPLAIN SELECT id, age,`name` from woman where  `name` like 'a%s%';
+EXPLAIN SELECT id, age,`name` from woman where  `name` like '%as%';
 ```
 
 ![](image/mysql-explain/cover_index_like.png)
@@ -1677,6 +1761,8 @@ EXPLAIN SELECT * from woman where `name` = '2000' or age = 23;
 
    ==当B表的数据大于A表时，exists 优于in==
 
+   **哪个表小哪个表先执行**
+
 ##### 2)exists总结
 
 1. 语法
@@ -1693,11 +1779,7 @@ EXPLAIN SELECT * from woman where `name` = '2000' or age = 23;
    - Exists 子查询的实际执行过程可能经过了优化而不是我们理解的逐句对比。如果担心效率问题，可进行实际验证以确定是否有效率问题
    - exists 子查询往往也可以用条件表达式，其他子查询或者join来替代，何种最优需要具体问题具体分析 
 
-
-
 #### 11) order by 优化
-
-
 
 ##### 1.Mysql两种排序方式
 
@@ -1714,7 +1796,7 @@ EXPLAIN SELECT * from woman where `name` = '2000' or age = 23;
 alter A add index idx_a_b_c (a,b,c);
 ```
 
-1. Order by 能使用索引最左前缀
+1. Order by 能使用索引**最左前缀**
 
    ```sql
    order by a
@@ -1723,7 +1805,7 @@ alter A add index idx_a_b_c (a,b,c);
    order by a desc, b desc, c desc
    ```
 
-2. 如果where 使用索引的最左前缀定义为常量，则order by能使用索引
+2. 如果**where 使用索引的最左前缀定义为常量**，则order by能使用索引
 
    ```sql
    where a=const order by b,c
@@ -1744,7 +1826,7 @@ alter A add index idx_a_b_c (a,b,c);
 #### 12)group by 优化
 
 1. order by适用的group by都使用
-2. group by的实质是先排序再分组，遵照索引建立的最佳左前缀
+2. group by的实质是**先排序再分组**，遵照索引建立的最佳左前缀
 3. 当无法使用索引列，增大max_length_for_sort_data参数的设置+ 增大sort_buffer_size的参数设置
 4. where 高于having，能写在where限定的条件就不要写在having中
 

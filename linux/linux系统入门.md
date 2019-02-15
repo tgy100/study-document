@@ -74,7 +74,7 @@ LSB, FHS: (FileSystem Heirache Standard)
 - lib: 
 - lib64:
 - include: C程序的头文件(header files);
-- share:结构化独立的数据，例如doc, man等;
+- share:结构化独立的数据，例如doc, man,dic等;
 - local:第三方应用程序的安装位置:
   里面有: bin, sbin, lib, lib64, etc, share
 
@@ -120,7 +120,7 @@ LSB, FHS: (FileSystem Heirache Standard)
 
 ##### 4)帮助文件: 
 
-	/usr/share/man, /usr/ share/doc, /usr/local/ share/man, /usr/local/ share/doc
+	/usr/share/man, /usr/share/doc, /usr/local/share/man, /usr/local/share/doc
 
 #### (21)linux下的文件类型;
 
@@ -169,8 +169,6 @@ LSB, FHS: (FileSystem Heirache Standard)
    - -f:强制，不调用shutdown
    - -p:切断电源	
 
-
-
 ##### 3)跟用户登录相关:
 
 who, whoami, w
@@ -192,6 +190,8 @@ who, whoami, w
   ```shell
   echo $HISTFILE
   ```
+
+  使用**export**查看所有环境变量。
 
 - HISTFILE:  ~/.bash_history;
 
@@ -323,7 +323,7 @@ bash中用于实现文件名“通配”
 5. 专用字符集合:
 
 - \[:digit:\]: 任意数字，相当于0-9
-- \[ :lower:\]:任意小写字母
+- \[:lower:\]:任意小写字母
 - \[:upper:\]: 任意大写字母
 - \[:alpha:\]: 任意大小写字母
 - \[:alnum:\]: 任意数字或字母
@@ -348,12 +348,15 @@ bash中用于实现文件名“通配”
 
 ##### 8) bash的快捷鍵
 
-- Ctrl+1:清屏，相当于clear命令;
-- Ctrl+a:跳輳至命令幵始処:
-- Ctrlte:跳輳至命令結尾処: 
+- Ctrl+l:清屏，相当于clear命令;
+- Ctrl+a:跳輳至命令开始位置:
+- Ctrlte:跳輳至命令结尾处: 
 - Ctrl+c:取消命令的抗行: 
-- Ctrl+u:刪除命令行首至光村所在赴的所有内容;
-- Ctrl+k:刪除光禄所在処至命令行尾部的所有内容;
+- Ctrl+u:刪除命令行首至光标所在处的所有内容;
+- Ctrl+k:刪除光标所在处至命令行尾部的所有内容;
+- Ctrl+r: 快速检索使用过的历史命令,其中的r 为: retriever
+- Ctrl+w: 删除光标前面的单词，以空格分隔
+- Ctrl+y: 粘贴Ctrl+u，Ctrl+k，Ctrl+w删除的文本。
 
 ##### 9) bash的的I/O重定向
 
@@ -508,11 +511,11 @@ who | tail -n 3| tr 'a-z' 'A-Z' > /tmp/who.out
 - uniq命令:
   uniq [OPTION]... [FILE]...
 
-  - -c: 显示每行重复出现的次数:
+  - -c (count): 显示每行重复出现的次数:
 
-  - -d; 仅显示重复过的行;
+  - -d (repeated); 仅显示重复过的行;
 
-  - -u:仅显示不曾重复的行:
+  - -u (unique):仅显示不曾重复的行:
 
     **Note:连续且完全相同方为重复**
 
@@ -571,7 +574,7 @@ sed -e '/^#/d' passwd |head -n 10 | tail -n 5 | sort -t':' -k 3 -n | cut -d':' -
     5. 当然，如果你使用”bash test.sh”这样的命令来执行脚本，那么#!这一行将会被忽略掉，解释器当然是用命令行中显式指定的bash。
 
   - \#! /bin/bash 
-  - \#! /usr/bin/ python
+  - \#! /usr/bin/python
   - \#! /usr/bin/perl 
 
 - magic number:魔数
@@ -670,7 +673,7 @@ more, less, tail, head
 touch
 
 1. 文件: metadata(元数据,就是文件的属性，rex,类型), data
-2. 查看文件状态: stat
+2. 查看文件元数据: stat
 3. 三个时间戳:
    - access time:访问时间，简写为atime, 读取文件内容
    - modify time:修改时间，mtime, 改变文件内容(数据)
@@ -766,7 +769,7 @@ rm [OPTION]... FILE.
 ##### 2) 用户登录系统的方式
 
 - token ： token授权
-- identity(username/pas sword)：用户密码
+- identity(username/password)：用户密码
 
 ##### 3) Linux用户: 
 
@@ -807,7 +810,7 @@ rm [OPTION]... FILE.
 
 运行中的程序:进程(process)
 以进程发起者的身份运行:
-root:Cat
+root:cat
 tom: cat
 进程所能够访问的所有资源的权限取决于进程的发起者的身份;
 
@@ -825,7 +828,7 @@ tom: cat
 
      ```
      name :password:UID:GID: GECOS : directory:shell
-     用户名;密码:UID:GID;GECOS:主目录:默认shel
+     用户名;密码:UID:GID;GECOS:主目录:默认shell
      ```
 
 2. /etc/group:组及其属性信息;
@@ -833,7 +836,7 @@ tom: cat
    - group文件每一列的含义:
 
      ```
-     group_ name : password :GID:user_ list
+     group_name:password:GID:user_list
      组名:组密码:GID:以当前组为附加组的用户列表(分隔符为逗号) 
      ```
 
@@ -894,9 +897,9 @@ tom: cat
 
    - -d /PATH/TO/HOME_ DIR: 以指定的路径为用户的家目录;
 
-   - s  SHELL: 指明用户的默认shell程序，可用列表在/etc/shells文件中;
+   - -s  SHELL: 指明用户的默认shell程序，可用列表在/etc/shells文件中;
 
-   - G GROUP1[ , GROUP2,...[ ,GROUPN]. 为用户指明附加组：组必须事先存在;
+   - -G GROUP1[ , GROUP2,...[ ,GROUPN]. 为用户指明附加组：组必须事先存在;
 
    - -r 创建系统用户
 
@@ -955,7 +958,7 @@ sed -e '/^#\|^$/d' /etc/sudoers
 3. id 查看用户相关的id信息
 
 4. 切换用户或以其他用户身份执行命令:su
-   su [options...][-] [user [args...]]
+   su \[options...][-] [user [args...]]
 
    - 切换用户的方式:
 
@@ -1013,7 +1016,7 @@ sed -e '/^#\|^$/d' /etc/sudoers
      echo $?
      ```
 
-     Note: /dev/nu11, bit buckets
+     Note: /dev/null, bit buckets
      ​	   /dev/zero, 产生0
 
 7. 删除用户: userdel
@@ -1118,7 +1121,7 @@ u-
 
 - 文件(file):  666 - umask
   Note:如果某类的用户的权限减得的结果中存在x权限，则将其权限+1
-- 目录(DIR): 777- umask
+- 目录(DIR): 777 - umask
 - umask:查看
 - umask #:设定
   命令总结: chmod, chown, chgrp, umask
@@ -1144,8 +1147,8 @@ u-
 
 2. 启动为进程之后，其进程的属主为原程序文件的属主，
 3. 权限设定:
-   chmod U+s FILE. ..
-   chmod U-s FILE...
+   chmod u+s FILE. ..
+   chmod u-s FILE...
 
 ###### ③.SGID
 
@@ -1186,9 +1189,41 @@ chmod 3777 /tmp/a.txt
 - SGID: group, 占据group的执行权限位;
   - s  group拥有 x权限
   - S group没有 x权限
-- Sticky: other, 占据ohter的执行权限位;
+- Sticky: other, 占据other的执行权限位;
   - t other拥有x权限
   - T other没有x权限
+
+##### 9)访问控制列表(facl)
+
+​	file access control list
+
+​	指定某一个用户或者组具有的权限
+
+###### ① setfacl
+
+​	设置文件或者目录的访问控制权限
+
+- -m :给目录设置权限
+- -M: 给文件设置权限
+- -x: 删除目录的访问控制权限
+- -X: 删除文件的访问控制权限
+
+```shell
+#给目录facl设置tgy03用户具有读写执行权限
+setfacl -m u:tgy03:rwx facl
+#删除目录facl设置的访问控制权限
+setfacl -x u:tgy03 facl
+```
+
+###### ② getfacl
+
+​	获取文件的所有权限
+
+![image-20190212101621798](image/getfacl.png)
+
+注意:
+
+​	**用户对文件或者目录的访问权限的检测顺序: 属主(u)权限-> 属组(g)权限->facl权限-> 其他(o)权限**
 
 #### (9)文本处理
 
@@ -1244,7 +1279,7 @@ Linux上文本处理三剑客:
    - \\+: 匹配其前面的字符至少1次:
    - \\{m\\}:匹配前面的字符m次:
    - \\{m,n\\};匹配前面的字符至少m次，至多n次:
-     \ \{0,n\\}:匹配前面的字符至多n次: 
+     \\{0,n\\}:匹配前面的字符至多n次: 
      \\{m,\\}:匹配前面的字符至少m次:
 
 3. 位置锚定:
@@ -1362,14 +1397,11 @@ Linux上文本处理三剑客:
       ```
 
    10. 写一个脚本，完成如下功能
-      如果root用户登录了当前系统，就显示root用户在线:否则说明其未登录:
+     如果root用户登录了当前系统，就显示root用户在线:否则说明其未登录:
 
-      ```shell
-      (w | egrep '^root\>' &> /dev/null) && echo "root exisit" || echo "root no exisit"
-      ```
-
-      
-
+     ```shell
+     (w | egrep '^root\>' &> /dev/null) && echo "root exisit" || echo "root no exisit"
+     ```
 
 
 ##### 2）egrep
@@ -1484,7 +1516,7 @@ Linux上文本处理三剑客:
 
     生效范围为当前shell进程:对当前shell之外的其它shell进程，包括当前shell的子shell进程均无效;
 
-    - 变量赋值: name= 'value
+    - 变量赋值: name= value
 
     - 可以使用引用:
       value : 
@@ -1782,7 +1814,7 @@ let var--
 逻辑运算:
 
 1. 第一种方式:
-   COMMAND1 && COmMAND2
+   COMMAND1 && COMMAND2
    COMMAND1 || COMMAND2
    ! COMMAND
 
@@ -1860,14 +1892,23 @@ if id $1 &> /dev/null ; then
     
     echo "$1 用户存在";
     exit 0;
-else 
-    
+else  
     useradd $1 &> /dev/null
     [ $? -eq 0 ] && echo "$1" | passwd --stdin $1 &> /dev/null && exit 0 || echo "创建用户失败" && exit 1
 fi
 ```
 
+##### 8) shift
 
+​	shift [#] : 删除参数列表的前#个参数
+
+```shell
+#!/bin/bash
+
+echo "$# , $@"
+shift 2
+echo "$#, $*"        
+```
 
 #### (11) vim 编辑器
 
@@ -1936,7 +1977,7 @@ fi
 
 ##### 5) 光标跳转:
 
-###### ①. 字符司跳转;
+###### ①. 字符间跳转;
 
 - h:左
 
@@ -1950,7 +1991,7 @@ fi
 
 **#COMMAND: 跳转由#指定的个数的字符:** 
 
-###### ②. 单词间跳转:
+###### ②. 单词间跳转:(web)
 
 - w: 下一个单词的词首
 - e: 当前或下一单词的词尾
@@ -1971,8 +2012,6 @@ fi
 - G:最后一行:
 
 - 1G 或者 gg: 第一行;
-
-  
 
 ##### 6) 删除命令;
 
@@ -2056,12 +2095,12 @@ r: 替换光标所在处的字符
 
 ​	.
 
-###### ⑤. 翻异操作:
+###### ⑤. 翻页操作:
 
-- Ctrl+f:向文件尾部翻一屏;
-- Ctrl+b:向文件首部翻一屏;
-- Ctrl+d:向文件尾部翻半屏;
-- Ctrl+u:向文件首部翻半屏;
+- Ctrl+f: 向文件尾部翻一屏;
+- Ctrl+b: 向文件首部翻一屏;
+- Ctrl+d: 向文件尾部翻半屏;
+- Ctrl+u: 向文件首部翻半屏;
 
 ###### ⑥. vim自带的练习教程:
 
@@ -2075,7 +2114,7 @@ r: 替换光标所在处的字符
 
 ​	:start_ pos ,end pos
 
-- \ #: 具体第#行，例如2表示第2行:
+- \#: 具体第#行，例如2表示第2行:
 
 - \#,#: 从左侧#表示行起始，到右侧#表示行结尾;
 
@@ -2118,7 +2157,7 @@ r: 替换光标所在处的字符
 
   - 要查找的内容:可使用模式
 
-  - 替换为的内容:不能使用模式，但可以使用\1, \2, ...等后 向引用符号:
+  - 替换为的内容:不能使用模式，但可以使用\1, \2, ...等后向引用符号:
 
     还可以使用“&”引用前面查找时查找到的整个内容;
 
@@ -2167,7 +2206,7 @@ r: 替换光标所在处的字符
 
 - -o: 水平分割
 - -O: 垂宜分割
-- 在窗口间切换: Ctrl+w, Arrow(上下左右箭头)：
+- 在窗口间切换: Ctrl+w **其中w按两遍**, Arrow(上下左右箭头)：
 
 ##### 15) 单文件窗ロ分割;
 
@@ -2389,7 +2428,7 @@ find [OPTION]... [查找路径] [查找条件] [处理动作]
   有些命令不能接受过多参数，此时命令执行可能会失败;另一种方式可规避此问题:
   find| xargs COMMAND
 
-⑥. 练习:
+###### ⑥. 练习:
 
 1. 查找/var目录下属为root, 且属组为mail的所有文件或目录;
 
@@ -2443,6 +2482,13 @@ find [OPTION]... [查找路径] [查找条件] [处理动作]
 
    ```shell
    find /etc/init.d/ -perm 113 -ls
+   ```
+
+9. 找出ios项目下所有以.h或者.m结尾的源代码文件,写到当前目录的all.txt中
+
+   ```shell
+   find . -name "*.[mh]" -type f | xargs -I {} echo "{}" >> path.txt
+   find . -name "*.[mh]" | xargs -I path cat path >> a.txt 2> /dev/null
    ```
 
    

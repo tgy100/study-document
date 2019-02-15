@@ -96,7 +96,7 @@
 
 
 
-####2) 条件查询
+####2)条件查询
 
 - 条件运算符( =, <, >, <=, >=, != , <>)
     ==<>:为mysql的不等于，推荐使用这个==
@@ -389,7 +389,6 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
       		'未知'
       END
       from product_category
-      
       ```
 
 - 分组函数
@@ -760,7 +759,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
 - 含义
 
-  出现在其他语句中的select语句，称为子查询或者内查询，外部的查询语句称为住查询或者外查询
+  出现在其他语句中的select语句，称为子查询或者内查询，外部的查询语句称为主查询或者外查询
 
 - 分类
 
@@ -793,7 +792,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
       列子查询一般搭配着多行操作符使用（in, any/some,all）
 
-  - 标量子查询（单行）
+  - 标量子查询（一行一列）
 
     ```sql
     #谁的年龄比范冰冰大
@@ -822,7 +821,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
     )
     ```
 
-  - 列子查询 （多行）
+  - 列子查询 （一列多行）
 
     - 多行操作符
 
@@ -988,7 +987,7 @@ select `buyer_name`, `order_amount` from `order_master` where  not(`order_amount
 
   1. 要求多条查询语句的查询列数是一致的
   2. 要求多条查询语句的查询的每一列的类型和顺序最好一致
-  3. union关键字默认是去重的，如果使用union all 可以包含重复项
+  3. union关键字默认是去重的，如果使用**union all** 可以包含重复项
 
 - 实例
 
