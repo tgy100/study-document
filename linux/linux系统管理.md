@@ -476,7 +476,7 @@ Note: FS TYPE一 定要与分区上已经文件类型相同:
 ##### (4) 转储频率:
 
 - 0:不做备份
-- ​1:每天转储
+- 1:每天转储
 - 2:每隔一天转储
 
 ##### (5)自检次序:
@@ -911,7 +911,7 @@ dd if=/etc/login.defs  of=./login.defs  bs=10 count=2
 
    - -d: 解压缩；
    - -#:指定压缩比; 默认是6;数字越大压缩比越大(1-9) ;
-   - -k: keep,保留原文件; 
+   - -k: keep, 保留原文件; 
 
 2. bzcat
 
@@ -926,6 +926,57 @@ dd if=/etc/login.defs  of=./login.defs  bs=10 count=2
    - -k: 保留原文件;
 
 2. xzcat
+
+   查看xz压缩的文件内容
+
+##### (2) 归档
+
+###### ①.tar
+
+1. 创建归档
+
+   - -c  -f  /Path/To/Somewhere.tar FILE ... (file可以为多个)
+   - -cf  /Path/To/Somewhere.tar FILE ... (file可以为多个)
+
+2. 展开归档
+
+   - -xf : /Path/to/someWhere.tar -C  /Path/To/anywher
+
+   - -C : 解压到指定位置
+
+     ```shell
+     tar -xf qq.tar ^C qq1
+     ```
+
+3. 查看归档文件的文件列表
+
+   - -tf /Path/to/someWhere.tar
+
+     ```shell
+     tar -tf qq.tar
+     ```
+
+归档完成后通常需要压缩，结合此前的压缩工具，就能实现压缩多个文件了;
+
+4. 归档压缩
+
+   - -z: gzip2
+
+     - -zcf /PATH/TO/SOMEFILE.tar.gz FILE...
+
+     - -zxf /PATH/TO/SOMEFILE.tar.gz 
+
+       解压缩并展开归档,z选项可以省略
+
+   - j: bzip2
+
+     - -jcf : 使用 bzip2 压缩文件 
+     - -jxf: 使用 bzip2 解压文件 
+
+   - -J : xz
+
+     - -Jcf ：使用 xz压缩文件 
+     - -Jxf : 使用 xz 解压文件 
 
 ### 五.shell
 
@@ -968,3 +1019,276 @@ fi
 fdisk -l 2> /dev/null | egrep "^${dev_path}[[:space:]]" &>/dev/null && fdisk -l $dev_path || echo "$dev_path 不是设备地址";exit 1
 ```
 
+### 六. linux任务计划与周期任务
+
+#### 1)命令介绍
+
+- 未来的某时间点执行一次某任务: at, batch
+
+- 周期性执行某任务: crontab
+
+  执行结果以邮件的方式发送给用户
+
+  查看是否可以接收到任务的命令:
+
+  - netstat -tnl   
+
+    - -t : tcp
+    - -n: numeric
+    - -l: listening
+
+  - ss -tnl
+
+    如果发现25端口被监听，就可以收邮件。
+
+#### 2)本地邮件服务
+
+- smtp: simple mall transmission protocol
+- pop3: Post Office Procotol
+- imap4: Internet Mail Access Procotol
+
+##### (1) mail
+
+​	mailx - send and recelve Internet mail
+
+1. MUA
+
+    mail user agent,用户收发邮件的工具
+
+2. mailx
+
+   - 使用格式
+
+     mailx -s "Subject" username@hostname
+
+     - -s : 邮件标题
+
+   - 邮件正文的生成方式
+
+     1. 交互式输入，使用点(.)或者ctrl+d结束
+
+        ```shell
+        mailx -s "hello word" tgy01
+        ```
+
+     2. 输入重定向
+
+        ```shell
+        # 把 separator.txt 的内容当作邮件正文发送
+        mailx -s "separator" tgy01 < separator.txt
+        ```
+
+     3. 通过管道
+
+     4. ```shell
+        echo "jobs_spec" | mail -s "pool" tgy01
+        ```
+
+#### 3)任务计划: 
+
+##### (1).at
+
+​	at  [option ...] time
+
+- Time
+
+  - HH:MM [YYYY-mm-dd]
+
+  - noon, minnight,tomorrow
+
+  - now+#
+
+    \#: 单位可以是 minutes,hours,day or weeks
+
+  at的作业有队列，用单个字母表示，默认都使用a队列;
+
+- 常用选项:
+
+  - -l :查看作业队列, 相当于atq
+
+  - -f /PATH/FROM/SOMEFILE:从指定文件中读取作业任务，而不用再交互式输入:
+
+    ```shell
+    at now+1minutes -f ./ats.sh
+    ```
+
+  - -d:删除指定的作业，相当于atrm;
+
+    ```
+    at -d 3
+    ```
+
+  - -c:查看指定作业的具体内容;
+
+  - -q QUEUE:指明队列;
+
+- 注意：
+
+  任务执行结果是以邮件发送给提交作业的用户
+
+##### (2) batch
+
+​	batch与at类似，唯一区别就是batch会让系统自行选择在系统资源较空闲的时间去执行指定的任务;
+
+#### 4).周期性任务cron
+
+##### (1).服务程序:
+
+​	cronie:主程序包，提供了crond守护进程及相关辅助工具;
+
+##### (2)确保crond守护进程(daemon)处于运行状态的方式:
+
+- CentOS 7: systemctl status crond.service
+  出现:  **Actve: actlve (runnIng) …**
+- CentOs 6: service crond status
+  出现: **... is running-**
+
+​	向crond提交作业的方式不同于at,它需要使用专用的配置文件，此文件有固定格式，不建议使用文本编辑器直接编辑此文件;要使用crontab命令;
+
+##### (3).cron任务分类:
+
+###### ①. 系统cron任务:
+
+​	主要用于实现系统自身的维护,手动编辑 /etc/crontab文件
+
+**/etc/crontab的配置格式:**
+
+```shell
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+
+# For details see man 4 crontabs
+
+# Example of job definition:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# |  |  |  |  |
+# *  *  *  *  * user-name  command to be executed
+```
+
+**注意:**
+
+注意:
+
+1. 每一行定义一个周期性任务;
+   - \*  *  *  *  *定义周期性时间
+   - user-name :运行任务的用户身份
+   - command to be executed:任务
+2. 此处的环境变量不同于用户登录后获得的环境，因此,建议命令使用**绝对路径**，或者**自定义PATH环境变量**;
+3. 执行结果邮件发送给MAILTO指定的用户
+
+###### ②. 用户cron任务:
+
+1. 命令:
+
+    crontab命令
+
+2. 用户cron的配置格式: /var/spool/cron/USERNAME
+
+   ```
+   SHELL=/bin/bash
+   PATH=/sbin:/bin:/usr/sbin:/usr/bin
+   MAILTO=root
+   
+   # For details see man 4 crontabs
+   
+   # Example of job definition:
+   # .---------------- minute (0 - 59)
+   # |  .------------- hour (0 - 23)
+   # |  |  .---------- day of month (1 - 31)
+   # |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+   # |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+   # |  |  |  |  |
+   # *  *  *  *  * user-name  command to be executed
+   ```
+
+3. 注意:
+
+   - 每行定义一个cron任务，共6个字段;
+   - 此处的环境变量不同于用户登录后获得的环境，因此，建议命令使用**绝对路径**，或者自定义PATH环境变量;
+   - 邮件发送给当前用户;
+
+###### ③.时间表示
+
+1. 特定值;
+   给定时间点有效取值范围内的值;
+   注意: day of week和day of month-般不同时使用;
+
+2. \*给定时间点上有效取值范围内的所有值;表"每xxx"
+
+3. 离散取值:,
+   在时间点上使用逗号分隔的多个值; #,#
+
+4. 连续取值: -
+   在时间点上使用连接开头和结束
+
+   \#-#
+
+5. 在指定时间点上，定义步长: 
+   /#: #即步长;
+
+   **注意:**
+   (1)指定的时间点不能被步长整除时，其意义将不复存在;
+   (2)最小时间单位为“分钟”，想完成“秒”级任务，得需要额外借助于其它机制;
+   定义成每分钟任务:而在利用脚本实现在每分钟之内，循环执行多次;
+
+6. 示例:
+
+   - 3\*\*\*\*: 每小时执行一次;每小时的第3分钟;
+   - 34\*\*5:每周执行一次;每周5的4点3分;
+   - 567\*\*:每月执行一-次;每月的7号的6点5分;
+   - 789 10\*:每年执行一次;每年的10月9号8点7分;
+   - 98\*\*3,7:每周三和周日的8点9分钟执行
+   - 0 8,20 \*\* 3,7: 每个月周三和周日的8点和20点
+   - 0 9-18 \*\* 1-5: 周1至周5的9点到18点每个点
+   - \*/5\*\*\*\*:每5分钟执行一次某任务;
+   -  */7 : 无意义
+
+###### ④.crontab命令:
+
+​	crontab \[-u user\] [-l| -r | -e]  [-l ]
+
+- -e:编辑任务;
+
+- -l : 列出所有任务;
+
+- -r: 移除所有任务;即删除/var/spool/cron/USERNAME文件;
+
+- -i:在使用-r选项移除所有任务时提示用户确认;
+
+- -u user: root用户可为指定用户管理cron任务;
+
+  **注意:运行结果以邮件通知给当前用户;如果拒绝接收邮件:**
+
+  1. COMMAND > /dev/null
+  2.  COMMAND &> /dev/null
+
+  **注意:定义COMMAND时，如果命令需要用到%，需要对其转义;但放置于单引号中的%不用转义亦可;**
+
+  思考:某任务在指定的时间因关机未能执行，下次开机会不会自动执行?
+  	不会!
+  如果期望某时间因故未能按时执行，下次开机后无论是否到了相应时间点都要执行一次，可使用anacron实现;
+  课外作业: anacron及其应用;
+
+```
+#每两分钟执行: cat /etc/fstab
+*/2 * * * * "/bin/cat /etc/fstab"
+```
+
+###### ⑤.练习:
+
+1. 每12小时备份一次/etc目录至/backups目录中， 保存文件名称格式为“etc-yy-mm-dd-hh.tar.xz"
+
+   ```shell
+   0 */12 * * * /usr/bin/tar -Jcf "etc-$(date +%y-%m-%d-%H).tar.xz" ~/pp
+   
+   */2 * * * * cd ~/oo ; /usr/bin/tar -Jcf "etc-$(date +%y-%m-%d-%H).tar.xz" ~/pp
+   ```
+
+2. 每周2、 4、7备份/var/log/secure文件至/logs目录中，文件名格式为“secure-yyyymmdd" ;
+
+3. 每两小时取出当前系统/proc/meminfo文件中以S或M开头的行信息追加至/tmp/meminfo.txt文件中;
