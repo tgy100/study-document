@@ -1169,11 +1169,59 @@ done
 
 3. 分别求100以内所有偶数之和,以及所有奇数之和;
 
-4. 计算当前系统上的所有用户id之和;
+4. 计算当前系统上的所有用户id之和
+
+   ```shell
+   #!/bin/bash
+   
+   declare -i sum_id=0;
+   
+   id_num='';
+   
+   for id_num in `cat /etc/passwd | cut -d: -f3` ;do 
+   
+       echo $id_num
+       sum_id=$[ $sum_id + $id_num ];
+   done
+   
+   echo $sum_id
+   ```
 
 5. 通过脚本参数传递一个目录给脚本，而后计算此目录下所有文本文件的行数之和;并说明此类文件的总数;
 
-   
+##### (2) while
+
+> while循环:
+> while CONDITION; do
+> 循环体
+> 循环控制变量修正表达式
+> done
+
+- 进入条件: CONDITION测试为"真”
+- 退出条件: CONDITION测试为"假“
+
+```shell
+#!/bin/bash
+
+declare -i sum=0;
+declare -i index=0;
+
+while [ $index -le 100 ]; do
+
+    sum=$[$sum + $index ];
+    let index++;
+done
+
+echo $sum
+
+```
+
+**练习:分别使用for, while, until实现**
+
+1. 分别求100以内所有偶数之和, 100以内所奇数之和;
+2. 创建10个用户, user101-user110 ;密码同用户名
+3. 打印九九乘法表;
+4. 打印逆序的九九乘法表;
 
 ### 六. linux任务计划与周期任务
 
@@ -2118,7 +2166,7 @@ automake:生成Makefile. in
   - 安装路径设定:
     - --prefix=/PATH/ TO/SOMEWHERE: 指定默认安装位置:
     - -- sysconfdir=/PATH/ TO/SOMEWHERE:配置文件安装位置:
-  - System types : 
+  - System types: 
     Optional Features: 可选特性
     - -- disable- FEATURe
     - -- enable- FEATURE [ =ARG ]
@@ -2138,7 +2186,7 @@ automake:生成Makefile. in
 
 ###### ①. 导出二进制程序目录至PATH环境变量中;
 
-​	生成文件/etc/profile.d/NANE. sh，在该文件中给Path添加程序安装路径
+​	生成文件/etc/profile.d/NANE.sh，在该文件中给Path添加程序安装路径
 
 ```shell
 export PATH=/PATH/TO/Bin$path
@@ -2146,7 +2194,7 @@ export PATH=/PATH/TO/Bin$path
 
 ###### ②.导出库文件路径
 
-- 编辑/etc/Id.so.conf. d/NAME .conf，添加新的库文件所在目录至此文件中:
+- 编辑/etc/Id.so.conf.d/NAME.conf，添加新的库文件所在目录至此文件中:
 - 让系统重新生成缓在:ldconfig  [-v]
 
 ###### ③. 导出头文件
@@ -2976,6 +3024,65 @@ DEVICE=IFACE_ LABEL
 BOOTPROTO :网上别名不支持动态获取地址;
 static, none
 
+#### 9)网络工具
+
+##### (1)ping命令
+
+​	send ICMP ECHO_REQUEST to network hosts
+
+- ICMP: internet control message protocal
+
+ping [option] destination
+
+**option:**
+
+- -c :发送ping包的个数
+- -w : ping 命令的超时时间
+- -W: 一次ping操作中，等待对方响应的时长
+- -s: 指明ping包报文的大小
+
+##### (2)hping命令
+
+```shell
+# 安装
+yum install hping3 -y
+```
+
+​	send (almost) arbitrary TCP/IP packets to network hosts
+
+arbitrary : 专制的，任意的。
+
+- --fast:alias for -i u10000 (10 packets for second)
+
+##### (3) traceroute命令:
+
+​	print the route packets trace to network host
+​	跟踪从源主机到目标主机之间经过的网关;
+
+##### (4) ftp命令:
+
+ftp: File Transfer Protocol
+ftp服务命令行客户端工具;
+
+##### (5)Iftp命令:
+
+Iftp [-P port] [-U user[,pass]] [site]
+
+- get, mget
+- put, mput
+- rm, mrm
+
+##### (6)wget 命令
+
+​	The non-interactve network downtoader
+wget [option] -URL
+
+- -b :在后台执行下载操作，
+- -q静默模式。不显示下载进度。
+- -O file 下载的文件的保存位量。
+- c: 续传
+- --limlt-rate=amount 以指定的速度传输文件;
+
 ### 十.linux进程管理
 
 #### 1)进程概念
@@ -3284,4 +3391,262 @@ KiB Swap:  2097148 total,  2095612 free,     1536 used.   808948 avail Mem
   - %MEM — 进程使用的物理内存百分比 
   - TIME+ — 进程使用的CPU时间总计，单位1/100秒 
   - COMMAND — 进程名称（命令名/命令行）
+
+##### (6)htop命令
+
+###### ①.选项:
+
+- -d# :指定延迟时间间隔;
+- -u UserName :仅显示指定用户的进程;
+- -s COLUME :以指定字段进行排序;
+
+###### ②.子命令:
+
+- l :显示选定的进程打开的文件列表;
+- s :跟踪选定的进程的系统调用;
+- t :以层级关系显示各进程状态;
+- a :将选定的进程绑定至某指定的CPU核心;
+
+##### (7) vmstat命令:
+
+​	report virtual memory statistics
+​	vmstat [options] [delay [count]]
+
+###### ①. 显示结果字段说明
+
+1. procs :
+   - r :等待运行的进程的个数; CPU上等待运行的任务的队列长度;
+   - b :处于不可中断睡眠态的进程个数;被阻塞的任务队列的长度;
+2. memory :
+   - swpd :交换内存使用总量;
+   - free :空闲的物理内存总量;
+   - buffer :用于buffer的内存总量;
+   - cache :用于cache的内存总量;
+3. swap
+   - si :数据进入swap中的数据速率( kb/s )
+   - so :数据离开swap的速率(kb/s)
+4. io
+   - bl :从块设备读入数据到系统的速度( kb/s )
+   - bo :保存数据至块设备的速率( kb/s )
+5. system
+   - in : interrupts ,中断速率;
+   - CS : context switch,上下文切换的速率;
+6. cpu
+   - us : user space
+   - sy : system
+   - ld : idle
+   - wa : wait
+   - st: stolen
+
+###### ②.选项
+
+- -s :显示内存统计数据;
+
+##### (8) pmap
+
+​	report memory map of a process
+pmap [options] pid [.]
+
+- -x : 显示详细格式信息
+
+另一种pmap查询方式: саt /рrос/РІD/mарѕ
+
+##### (9) glances:
+
+​	a cross-platform curses-based monitoring tool
+
+###### ①.常用选项:
+
+- -b:以Byte为单位显示网上数据速率;
+- -d :关闭磁盘I/O模块;
+- -m :关闭mount模块;
+- -n :关闭network模块;
+- -t# :刷新时间间隔;
+- -1 :每个cpu的相关数据单独显示;
+- -0 {HTML|CSV} :输出格式;
+- -f /PATH/TO/SOMEDIR :设定输出文件的位置;
+
+###### ②.C/S模式下运行glances命令:
+
+1. 服务模式:
+
+   glances -s -B IPADDR
+
+   IPADDR :本机的某地址,用于监听;
+
+2. 客户端模式:
+   glances -C IPADDR
+   IPADDR :是远程服务器的地址;
+
+##### (10)dstat命令:
+
+​	versatlle tool for generating system resource statistics
+dstat [-afv] [options..] [delay [count]]
+
+###### ①.常用选项:
+
+- -c，--cpu :显示cpu相关信息;
+- -C #,#..,total
+- -d, --disk :显示磁盘的相关信息
+- -D sda,sd....tobal
+- -g :显示page相关的速率数据;
+- -m : Memory的相关统计数据
+- -n : Interface的相关统计数据;
+- -p :显示process的相关统计数据;
+- -r :显示io请求的相关的统计数据;
+- -s :显示swapped的相关统计数据;
+- --tcp
+- --udp
+- -raw
+- --socket
+- --ipc
+- --top-cpu :显示最占用CPU的进程;
+- --top-io :最占用io的进程;
+- --top-mem :最占用内存的进程;
+- --top-lantency :延迟最大的进程;
+
+##### (11) kill命令:
+
+​	terminate a process
+用于向进程发送信号,以实现对进程的管理;
+
+###### ①.显示当前系统可用信号:
+
+​	kill -I [signal]
+ **每个信号的标识方法有三种:**
+
+1. 信号的数字标识;
+
+   ```shell
+   kill -l 1
+   ```
+
+2. 信号的完整名称;
+
+   ```shell
+   kill -l SIGHUP
+   ```
+
+3. 信号的简写名称;
+
+   ```shell
+   kill -l HUG
+   ```
+
+###### ②.向进程发信号:
+
+​	kill [-S signall-SIGNAL] pld...
+**常用信号:**
+
+1. SIGHUP :无须关闭进程而让其重读配置文件;
+2. SIGINT:终止正在运行的进程,相当于Ctrl+c
+3. SIGKILL :杀死运行中的进程;
+4. SIGTERM :终止运行中的进程;
+5. SIGCONT :
+6. SIGSTOP :
+
+##### (12) killall命令
+
+​	kill processes by name :按照进程名发送信号
+killall [-SIGNAL] program
+
+```shell
+#暂停httpd服务
+killall httpd
+```
+
+##### (13)调整进程优先级
+
+​	可通过nice值调整的优先级范围: 100-139
+​		分别对应于: -20, 19
+​	进程启动时,其nice值默认为0 ,其优先级是120 ;
+
+###### ①.nice命令:
+
+​	以指定的nice值启动并运行命令
+
+nice [OPTION] [COMMAND [ARGU]..]
+
+- -n NICE
+
+```shell
+#设置httpd的nice值-5，同时启动httpd
+nice -n -5 httpd
+#查看httpd的pid，nice值以及优先级和执行的命令
+ps axo pid,ni,priority,comm | grep httpd
+```
+
+注意:仅管理员可调低nice值;
+
+###### ②.renice命令
+
+​	设置运行中的进程的nice值
+
+​	renice [-n] priority [-gpu] identifier...
+
+- -n,—prioripty 设置的nice值
+
+- -g, --pgrp pgid...
+
+- -u, --user   : name or uid...
+
+- -p, -\-pid pid
+
+  ```shell
+  renice -n -7 -p 800
+  ps axo pid,ni,prioripty,comm | grep httpd
+  ```
+
+  
+
+
+
+
+
+
+
+### 十一.Linux系统作业控制:
+
+#### 1) job :
+
+- 前台作业(foregroud) :通过终端启动,且启动后会一直占据终端;
+- 后台作业(backgroud) :可以通过终端启动,但启动后即转入后台运行(释放终端) ;
+
+#### 2) 让作业运行于后台
+
+##### (1)运行中的作业
+
+```
+Ctrl+z
+```
+
+**注意:送往后台后,作业会转为停止态;**
+
+##### (2)尚未启动的作业
+
+​	COMMAND &
+
+注意:此类作业虽然被送往后台,但其依然与终端相关;如果希望把送往后台的作业剥离与终端的关系:
+
+```
+nohup COMMAND &
+```
+
+
+
+#### 3) 查看所有的作业:
+
+​	jobs
+
+##### (1)可实现作业控制的常用命令:
+
+- fg [[%]job_num] :把指定的作业调回前台;
+
+- bg [[%] job_num] :让送往后台的作业在后台继续运行;
+
+- kill %job_num: 终止指定的作业;
+
+
+
+
 
